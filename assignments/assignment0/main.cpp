@@ -8,19 +8,55 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+#include <ew/shader.h>
+#include <ew/model.h>
+#include <ew/camera.h>
+#include <ew/cameraController.h>
+#include <ew/transform.h>
+
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 
 //Global state
+constexpr glm::vec3 CAMERA_INIT_POSITION = glm::vec3(0.f, 0.f, 5.f);
+constexpr glm::vec3 CAMERA_INIT_TARGET = glm::vec3(0.f);
+
 int screenWidth = 1080;
 int screenHeight = 720;
 float prevFrameTime;
 float deltaTime;
 
+ew::Camera camera;
+ew::CameraController cameraController;
+float cameraFov = 60.f;
+
+void resetCamera(ew::Camera* camera, ew::CameraController* controller)
+{
+	cameraFov = 60.f;
+	camera->position = CAMERA_INIT_POSITION;
+	camera->target = CAMERA_INIT_TARGET;
+	camera->fov = cameraFov;
+	controller->yaw = 0.f;
+	controller->pitch = 0.f;
+}
+
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+
+	camera.position = CAMERA_INIT_POSITION;
+	camera.target = CAMERA_INIT_TARGET;
+	camera.aspectRatio = float(screenWidth) / float(screenHeight);
+	camera.fov = cameraFov;
+
+	ew::Shader shader("assets/lit.vert", "assets/lit.frag");
+	ew::Model monkeyModel("assets/Suzanne.obj");
+	ew::Transform monkeyTransform;
+
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glEnable(GL_DEPTH_TEST);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -32,6 +68,17 @@ int main() {
 		//RENDER
 		glClearColor(0.6f,0.8f,0.92f,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		cameraController.move(window, &camera, deltaTime);
+		camera.fov = cameraFov;
+
+		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
+
+		shader.use();
+		shader.setMat4("_model", monkeyTransform.modelMatrix());
+		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		
+		monkeyModel.draw();
 
 		drawUI();
 
@@ -46,7 +93,14 @@ void drawUI() {
 	ImGui::NewFrame();
 
 	ImGui::Begin("Settings");
-	ImGui::Text("Add Controls Here!");
+	if (ImGui::CollapsingHeader("Camera settings"))
+	{
+		ImGui::SliderFloat("FOV", &cameraFov, 20.f, 180.f);
+		if (ImGui::Button("Reset"))
+		{
+			resetCamera(&camera, &cameraController);
+		}
+	}
 	ImGui::End();
 
 	ImGui::Render();

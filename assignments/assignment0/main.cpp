@@ -13,6 +13,7 @@
 #include <ew/camera.h>
 #include <ew/cameraController.h>
 #include <ew/transform.h>
+#include <ew/texture.h>
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
@@ -54,6 +55,8 @@ int main() {
 	ew::Model monkeyModel("assets/Suzanne.obj");
 	ew::Transform monkeyTransform;
 
+	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 	glEnable(GL_DEPTH_TEST);
@@ -74,10 +77,13 @@ int main() {
 
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
 
+		glBindTextureUnit(0, brickTexture);
+
 		shader.use();
 		shader.setMat4("_model", monkeyTransform.modelMatrix());
 		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
-		
+		shader.setInt("_mainTex", 0);
+
 		monkeyModel.draw();
 
 		drawUI();

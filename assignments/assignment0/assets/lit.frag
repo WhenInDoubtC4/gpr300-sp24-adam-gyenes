@@ -1,10 +1,17 @@
 #version 450
 
-in vec3 vs_normal;
+in Surface
+{
+	vec3 normal;
+	vec2 UV;
+} fs_in;
+
+uniform sampler2D _mainTex;
 
 out vec4 FragColor;
 
 void main()
 {
-	FragColor = vec4(vs_normal * 0.5 + 0.5, 1.0);
+	vec4 color = texture(_mainTex, fs_in.UV);
+	FragColor = color;
 }

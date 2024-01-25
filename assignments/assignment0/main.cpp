@@ -15,6 +15,8 @@
 #include <ew/transform.h>
 #include <ew/texture.h>
 
+#include <util/model.h>
+
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
@@ -64,7 +66,7 @@ int main() {
 	camera.fov = cameraFov;
 
 	ew::Shader shader("assets/lit.vert", "assets/lit.frag");
-	ew::Model monkeyModel("assets/Suzanne.obj");
+	Util::Model monkeyModel("assets/Suzanne.obj");
 	ew::Transform monkeyTransform;
 
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");

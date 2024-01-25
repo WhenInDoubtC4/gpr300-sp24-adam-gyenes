@@ -9,13 +9,15 @@ uniform mat4 _viewProjection;
 
 out Surface
 {
+	vec3 pos;
 	vec3 normal;
 	vec2 UV;
 } vs_out;
 
 void main()
 {
-	vs_out.normal = vNormal;
+	vs_out.pos = vec3(_model * vec4(vPos, 1.0));
+	vs_out.normal = transpose(inverse(mat3(_model))) * vNormal;
 	vs_out.UV = vUV;
 	gl_Position = _viewProjection * _model * vec4(vPos, 1.0);
 }

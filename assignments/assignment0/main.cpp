@@ -32,6 +32,18 @@ ew::Camera camera;
 ew::CameraController cameraController;
 float cameraFov = 60.f;
 
+struct Material
+{
+	float ambientStrength = 1.0;
+	float diffuseStrength = 0.5;
+	float specularStrength = 0.5;
+	float shininess = 128;
+};
+
+Material material;
+glm::vec3 lightColor = glm::vec3(1.0);
+glm::vec3 ambientColor = glm::vec3(0.3, 0.4, 0.45);
+
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
 	cameraFov = 60.f;
@@ -82,7 +94,14 @@ int main() {
 		shader.use();
 		shader.setMat4("_model", monkeyTransform.modelMatrix());
 		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		shader.setVec3("_cameraPosition", camera.position);
 		shader.setInt("_mainTex", 0);
+		shader.setVec3("_ambientColor", ambientColor);
+		shader.setVec3("_lightColor", lightColor);
+		shader.setFloat("_material.ambientStrength", material.ambientStrength);
+		shader.setFloat("_material.diffuseStrength", material.diffuseStrength);
+		shader.setFloat("_material.specularStrength", material.specularStrength);
+		shader.setFloat("_material.shininess", material.shininess);
 
 		monkeyModel.draw();
 
@@ -99,7 +118,19 @@ void drawUI() {
 	ImGui::NewFrame();
 
 	ImGui::Begin("Settings");
-	if (ImGui::CollapsingHeader("Camera settings"))
+	if (ImGui::CollapsingHeader("Light"))
+	{
+		ImGui::ColorEdit3("Ambient color", &ambientColor[0], ImGuiColorEditFlags_Float);
+		ImGui::ColorEdit3("Light color", &lightColor[0], ImGuiColorEditFlags_Float);
+	}
+	if (ImGui::CollapsingHeader("Material"))
+	{
+		ImGui::SliderFloat("Ambient strength", &material.ambientStrength, 0.f, 1.f);
+		ImGui::SliderFloat("Diffuse strength", &material.diffuseStrength, 0.f, 1.f);
+		ImGui::SliderFloat("Specular strength", &material.specularStrength, 0.f, 1.f);
+		ImGui::DragFloat("Shininess", &material.shininess, 1.f, 0.f, 1024.f);
+	}
+	if (ImGui::CollapsingHeader("Camera"))
 	{
 		ImGui::SliderFloat("FOV", &cameraFov, 20.f, 180.f);
 		if (ImGui::Button("Reset"))

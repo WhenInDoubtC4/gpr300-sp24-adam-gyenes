@@ -35,10 +35,6 @@ namespace Util
 			glGenBuffers(1, &_ebo);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ebo);
 
-			//Position
-			//glVertexAttribPointer(POSITION_ATTRIBUTE_INDEX, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, position)));
-			//glEnableVertexAttribArray(POSITION_ATTRIBUTE_INDEX);
-
 			VERTEX_ATTRIBUTE(POSITION_ATTRIBUTE_INDEX, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, position));
 			VERTEX_ATTRIBUTE(TANGENT_ATTRIBUTE_INDEX, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, tangent));
 			VERTEX_ATTRIBUTE(BITANGENT_ATTRIBUTE_INDEX, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, bitangent));

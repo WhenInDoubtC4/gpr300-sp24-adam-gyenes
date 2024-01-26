@@ -46,6 +46,15 @@ Material material;
 glm::vec3 lightColor = glm::vec3(1.0);
 glm::vec3 ambientColor = glm::vec3(0.3, 0.4, 0.45);
 
+GLuint currentColorTexture;
+GLuint currentNormalTexture;
+int currentTexture = 0;
+int prevTexture = 0;
+GLuint brickColorTexture;
+GLuint brickNormalTexture;
+GLuint rockColorTexture;
+GLuint rockNormalTexture;
+
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
 	cameraFov = 60.f;
@@ -69,7 +78,14 @@ int main() {
 	Util::Model monkeyModel("assets/Suzanne.obj");
 	ew::Transform monkeyTransform;
 
-	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+	brickColorTexture = ew::loadTexture("assets/brick2_color.jpg");
+	brickNormalTexture = ew::loadTexture("assets/brick2_normal.jpg");
+
+	rockColorTexture = ew::loadTexture("assets/rock_color.jpg");
+	rockNormalTexture = ew::loadTexture("assets/rock_normal.jpg");
+
+	currentColorTexture = brickColorTexture;
+	currentNormalTexture = brickNormalTexture;
 
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
@@ -91,13 +107,15 @@ int main() {
 
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
 
-		glBindTextureUnit(0, brickTexture);
+		glBindTextureUnit(0, currentColorTexture);
+		glBindTextureUnit(1, currentNormalTexture);
 
 		shader.use();
 		shader.setMat4("_model", monkeyTransform.modelMatrix());
 		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		shader.setVec3("_cameraPosition", camera.position);
 		shader.setInt("_mainTex", 0);
+		shader.setInt("_normalTex", 1);
 		shader.setVec3("_ambientColor", ambientColor);
 		shader.setVec3("_lightColor", lightColor);
 		shader.setFloat("_material.ambientStrength", material.ambientStrength);
@@ -127,6 +145,22 @@ void drawUI() {
 	}
 	if (ImGui::CollapsingHeader("Material"))
 	{
+		ImGui::Combo("Texture", &currentTexture, "Brick\0Rock");
+		if (currentTexture != prevTexture)
+		{
+			prevTexture = currentTexture;
+			if (currentTexture == 0)
+			{
+				currentColorTexture = brickColorTexture;
+				currentNormalTexture = brickNormalTexture;
+			}
+			else if (currentTexture == 1)
+			{
+				currentColorTexture = rockColorTexture;
+				currentNormalTexture = rockNormalTexture;
+			}
+		}
+
 		ImGui::SliderFloat("Ambient strength", &material.ambientStrength, 0.f, 1.f);
 		ImGui::SliderFloat("Diffuse strength", &material.diffuseStrength, 0.f, 1.f);
 		ImGui::SliderFloat("Specular strength", &material.specularStrength, 0.f, 1.f);

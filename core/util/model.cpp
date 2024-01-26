@@ -25,7 +25,7 @@ namespace Util
 
 	void Model::draw()
 	{
-		for (Util::Mesh mesh : _meshes) mesh.draw();
+		for (Util::Mesh& mesh : _meshes) mesh.draw();
 	}
 
 	glm::vec3 convertAIVec3(const aiVector3D& v) 

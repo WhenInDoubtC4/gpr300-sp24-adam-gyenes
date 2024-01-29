@@ -16,6 +16,7 @@
 #include <ew/texture.h>
 
 #include <util/model.h>
+#include <util/framebuffer.h>
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
@@ -55,6 +56,8 @@ GLuint brickNormalTexture;
 GLuint rockColorTexture;
 GLuint rockNormalTexture;
 
+Util::Framebuffer postprocessFramebuffer;
+
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
 	cameraFov = 60.f;
@@ -63,6 +66,19 @@ void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 	camera->fov = cameraFov;
 	controller->yaw = 0.f;
 	controller->pitch = 0.f;
+}
+
+void renderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
+{
+	if (!framebuffer.isComplete())
+	{
+		printf("Attempt to render to an incomplete framebuffer\n");
+		return;
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+	glViewport(0, 0, framebuffer.width, framebuffer.height);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 int main() {
@@ -100,7 +116,9 @@ int main() {
 
 		//RENDER
 		glClearColor(0.6f,0.8f,0.92f,1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		renderSceneToFramebuffer(postprocessFramebuffer);
 
 		cameraController.move(window, &camera, deltaTime);
 		camera.fov = cameraFov;
@@ -185,6 +203,9 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 	screenWidth = width;
 	screenHeight = height;
+
+	//Generate new framebuffer with updated size
+	postprocessFramebuffer = Util::createFramebuffer(screenWidth, screenHeight);
 }
 
 /// <summary>

@@ -68,7 +68,7 @@ void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 	controller->pitch = 0.f;
 }
 
-void renderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
+void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
 {
 	if (!framebuffer.isComplete())
 	{
@@ -78,12 +78,14 @@ void renderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
 
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
 	glViewport(0, 0, framebuffer.width, framebuffer.height);
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 int main() {
 	GLFWwindow* window = initWindow("Assignment 1", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+	postprocessFramebuffer = Util::createFramebuffer(screenWidth, screenHeight);
 
 	camera.position = CAMERA_INIT_POSITION;
 	camera.target = CAMERA_INIT_TARGET;
@@ -91,6 +93,7 @@ int main() {
 	camera.fov = cameraFov;
 
 	ew::Shader shader("assets/lit.vert", "assets/lit.frag");
+	ew::Shader postprocessShader("assets/postprocess.vert", "assets/postprocess.frag");
 	Util::Model monkeyModel("assets/Suzanne.obj");
 	ew::Transform monkeyTransform;
 
@@ -103,6 +106,10 @@ int main() {
 	currentColorTexture = brickColorTexture;
 	currentNormalTexture = brickNormalTexture;
 
+	//Create dummy VAO for screen
+	GLuint screenVAO;
+	glCreateVertexArrays(1, &screenVAO);
+
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 	glEnable(GL_DEPTH_TEST);
@@ -114,11 +121,8 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
-		//RENDER
-		glClearColor(0.6f,0.8f,0.92f,1.0f);
-		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		renderSceneToFramebuffer(postprocessFramebuffer);
+		//Start rendering to offscreen fbo
+		startRenderSceneToFramebuffer(postprocessFramebuffer);
 
 		cameraController.move(window, &camera, deltaTime);
 		camera.fov = cameraFov;
@@ -142,6 +146,17 @@ int main() {
 		shader.setFloat("_material.shininess", material.shininess);
 
 		monkeyModel.draw();
+
+		//Render to screen (default) fbo
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		glBindTextureUnit(0, postprocessFramebuffer.colorBuffer);
+		postprocessShader.use();
+		postprocessShader.setInt("_colorBuffer", 0);
+
+		glBindVertexArray(screenVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		drawUI();
 

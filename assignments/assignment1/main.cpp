@@ -226,7 +226,7 @@ void drawUI() {
 		if (ImGui::CollapsingHeader("Box blur"))
 		{
 			ImGui::Checkbox("Enable##1", &boxBlurEnable);
-			ImGui::DragInt("Size##2", &boxBlurSize, 0.1f, 0, 99);
+			ImGui::DragInt("Size##1", &boxBlurSize, 0.1f, 0, 99);
 		}
 		if (ImGui::CollapsingHeader("Chromatic aberration"))
 		{

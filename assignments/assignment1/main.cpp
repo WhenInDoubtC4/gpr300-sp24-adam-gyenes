@@ -57,6 +57,12 @@ GLuint rockColorTexture;
 GLuint rockNormalTexture;
 
 Util::Framebuffer postprocessFramebuffer;
+bool boxBlurEnable = false;
+int boxBlurSize = 2;
+
+bool chromaticAberrationEnable = false;
+float chromaticAberrationSize = 0.09;
+glm::vec2 focusPoint(0.5f, 0.5f);
 
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
@@ -154,6 +160,11 @@ int main() {
 		glBindTextureUnit(0, postprocessFramebuffer.colorBuffer);
 		postprocessShader.use();
 		postprocessShader.setInt("_colorBuffer", 0);
+		postprocessShader.setVec2("_focusPoint", focusPoint);
+		postprocessShader.setInt("_boxBlurEnable", boxBlurEnable);
+		postprocessShader.setInt("_boxBlurSize", boxBlurSize);
+		postprocessShader.setInt("_chromaticAberrationEnable", chromaticAberrationEnable);
+		postprocessShader.setFloat("_chromaticAberrationSize", chromaticAberrationSize);
 
 		glBindVertexArray(screenVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -206,6 +217,23 @@ void drawUI() {
 		{
 			resetCamera(&camera, &cameraController);
 		}
+	}
+	if (ImGui::CollapsingHeader("Post processing"))
+	{
+		ImGui::SliderFloat2("Focus point", &focusPoint[0], 0.0f, 1.f);
+
+		ImGui::Indent();
+		if (ImGui::CollapsingHeader("Box blur"))
+		{
+			ImGui::Checkbox("Enable##1", &boxBlurEnable);
+			ImGui::DragInt("Size##2", &boxBlurSize, 0.1f, 0, 99);
+		}
+		if (ImGui::CollapsingHeader("Chromatic aberration"))
+		{
+			ImGui::Checkbox("Enable##2", &chromaticAberrationEnable);
+			ImGui::SliderFloat("Size##2", &chromaticAberrationSize, 0.0f, 1.f);
+		}
+		ImGui::Unindent();
 	}
 	ImGui::End();
 

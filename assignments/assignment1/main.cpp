@@ -17,6 +17,7 @@
 
 #include <util/model.h>
 #include <util/framebuffer.h>
+#include <util/shader.h>
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
@@ -64,6 +65,11 @@ bool chromaticAberrationEnable = false;
 float chromaticAberrationSize = 0.09;
 glm::vec2 focusPoint(0.5f, 0.5f);
 
+bool dofEnable = false;
+int dofBlurSize = 8;
+float dofMinDistance = 1.0;
+float dofMaxDistance = 3.0;
+
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
 	cameraFov = 60.f;
@@ -98,8 +104,8 @@ int main() {
 	camera.aspectRatio = float(screenWidth) / float(screenHeight);
 	camera.fov = cameraFov;
 
-	ew::Shader shader("assets/lit.vert", "assets/lit.frag");
-	ew::Shader postprocessShader("assets/postprocess.vert", "assets/postprocess.frag");
+	Util::Shader shader("assets/lit.vert", "assets/lit.frag");
+	Util::Shader postprocessShader("assets/postprocess.vert", "assets/postprocess.frag");
 	Util::Model monkeyModel("assets/Suzanne.obj");
 	ew::Transform monkeyTransform;
 
@@ -158,13 +164,22 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glBindTextureUnit(0, postprocessFramebuffer.colorBuffer);
+		glBindTextureUnit(1, postprocessFramebuffer.depthBuffer);
 		postprocessShader.use();
+
+		postprocessShader.setSubroutine(GL_FRAGMENT_SHADER, {
+			std::make_pair("_blurFunction", boxBlurEnable ? "blurEnabled" : "blurDisabled"),
+			std::make_pair("_dofFunction", dofEnable ? "dofEnabled" : "dofDisabled"),
+			std::make_pair("_chromaticAberrationFunction", chromaticAberrationEnable ? "chromaticAberrationEnabled" : "chromaticAberrationDisabled") });
+
 		postprocessShader.setInt("_colorBuffer", 0);
+		postprocessShader.setInt("_depthBuffer", 1);
 		postprocessShader.setVec2("_focusPoint", focusPoint);
-		postprocessShader.setInt("_boxBlurEnable", boxBlurEnable);
 		postprocessShader.setInt("_boxBlurSize", boxBlurSize);
-		postprocessShader.setInt("_chromaticAberrationEnable", chromaticAberrationEnable);
 		postprocessShader.setFloat("_chromaticAberrationSize", chromaticAberrationSize);
+		postprocessShader.setFloat("_dofMinDistance", dofMinDistance);
+		postprocessShader.setFloat("_dofMaxDistance", dofMaxDistance);
+		postprocessShader.setInt("_dofBlurSize", dofBlurSize);
 
 		glBindVertexArray(screenVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -228,9 +243,16 @@ void drawUI() {
 			ImGui::Checkbox("Enable##1", &boxBlurEnable);
 			ImGui::DragInt("Size##1", &boxBlurSize, 0.1f, 0, 99);
 		}
+		if (ImGui::CollapsingHeader("Depth of field"))
+		{
+			ImGui::Checkbox("Enable##2", &dofEnable);
+			ImGui::DragInt("Blur size", &dofBlurSize, 0.1f, 1, 99);
+			ImGui::DragFloat("Min distance", &dofMinDistance, 0.1f);
+			ImGui::DragFloat("Max distance", &dofMaxDistance, 0.1f);
+		}
 		if (ImGui::CollapsingHeader("Chromatic aberration"))
 		{
-			ImGui::Checkbox("Enable##2", &chromaticAberrationEnable);
+			ImGui::Checkbox("Enable##3", &chromaticAberrationEnable);
 			ImGui::SliderFloat("Size##2", &chromaticAberrationSize, 0.0f, 1.f);
 		}
 		ImGui::Unindent();

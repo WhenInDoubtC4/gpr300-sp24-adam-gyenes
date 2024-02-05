@@ -80,6 +80,13 @@ void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 	controller->pitch = 0.f;
 }
 
+void createPostprocessFramebuffer(int width, int height)
+{
+	postprocessFramebuffer = Util::Framebuffer(glm::vec2(width, height));
+	postprocessFramebuffer.addColorAttachment();
+	postprocessFramebuffer.addDepthAttachment();
+}
+
 void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
 {
 	if (!framebuffer.isComplete())
@@ -88,8 +95,8 @@ void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
 		return;
 	}
 
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
-	glViewport(0, 0, framebuffer.width, framebuffer.height);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.getFBO());
+	glViewport(0, 0, framebuffer.getSize().x, framebuffer.getSize().y);
 	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
@@ -97,7 +104,7 @@ void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
 int main() {
 	GLFWwindow* window = initWindow("Assignment 1", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-	postprocessFramebuffer = Util::createFramebuffer(screenWidth, screenHeight);
+	createPostprocessFramebuffer(screenWidth, screenHeight);
 
 	camera.position = CAMERA_INIT_POSITION;
 	camera.target = CAMERA_INIT_TARGET;
@@ -163,8 +170,8 @@ int main() {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glBindTextureUnit(0, postprocessFramebuffer.colorBuffer);
-		glBindTextureUnit(1, postprocessFramebuffer.depthBuffer);
+		glBindTextureUnit(0, postprocessFramebuffer.getColorAttachment());
+		glBindTextureUnit(1, postprocessFramebuffer.getDepthAttachment());
 		postprocessShader.use();
 
 		postprocessShader.setSubroutine(GL_FRAGMENT_SHADER, {
@@ -270,7 +277,7 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 	screenHeight = height;
 
 	//Generate new framebuffer with updated size
-	postprocessFramebuffer = Util::createFramebuffer(screenWidth, screenHeight);
+	createPostprocessFramebuffer(screenWidth, screenHeight);
 }
 
 /// <summary>

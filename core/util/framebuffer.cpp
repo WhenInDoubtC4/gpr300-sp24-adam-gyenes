@@ -1,36 +1,71 @@
 #include "framebuffer.h"
 
+constexpr int MAX_COLOR_ATTACHMENTS = 8;
+
+//Why :(
+constexpr GLenum COLOR_ATTACHMENTS[MAX_COLOR_ATTACHMENTS] = {
+	GL_COLOR_ATTACHMENT0,
+	GL_COLOR_ATTACHMENT1,
+	GL_COLOR_ATTACHMENT2,
+	GL_COLOR_ATTACHMENT3,
+	GL_COLOR_ATTACHMENT4,
+	GL_COLOR_ATTACHMENT5,
+	GL_COLOR_ATTACHMENT6,
+	GL_COLOR_ATTACHMENT7,
+};
+
 namespace Util
 {
-	Framebuffer createFramebuffer(const unsigned int width, const unsigned int height, GLenum colorFormat)
+	Framebuffer::Framebuffer(const glm::vec2& size)
+		: _size(size)
 	{
-		Framebuffer result;
-		result.width = width;
-		result.height = height;
+		//Delete previous attachments
+		_colorAttachments.clear();
 
-		//Create FBO
-		glCreateFramebuffers(1, &result.fbo);
-		glBindFramebuffer(GL_FRAMEBUFFER, result.fbo);
+		glCreateFramebuffers(1, &_fbo);
+	}
 
-		//Create and attach color buffer texture
-		glGenTextures(1, &result.colorBuffer);
-		glBindTexture(GL_TEXTURE_2D, result.colorBuffer);
-		glTexStorage2D(GL_TEXTURE_2D, 1, colorFormat, result.width, result.height);
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, result.colorBuffer, 0);
+	GLuint Framebuffer::addColorAttachment(GLenum colorFormat)
+	{
+		if (_colorAttachments.size() >= MAX_COLOR_ATTACHMENTS)
+		{
+			printf("Framebuffer%i exceeds maximum number of color attachments\n", _fbo);
+			return -1;
+		}
 
-		//Create and attach depth buffer texture
-		glGenTextures(1, &result.depthBuffer);
-		glBindTexture(GL_TEXTURE_2D, result.depthBuffer);
-		glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, result.width, result.height);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, result.depthBuffer, 0);
+		GLuint colorAttachment;
 
-		return result;
+		glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
+
+		glGenTextures(1, &colorAttachment);
+		glBindTexture(GL_TEXTURE_2D, colorAttachment);
+		glTexStorage2D(GL_TEXTURE_2D, 1, colorFormat, _size.x, _size.y);
+		glFramebufferTexture(GL_FRAMEBUFFER, COLOR_ATTACHMENTS[_colorAttachments.size()], colorAttachment, 0);
+
+		_colorAttachments.push_back(colorAttachment);
+		return colorAttachment;
+	}
+
+	GLuint Framebuffer::addDepthAttachment()
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
+
+		glGenTextures(1, &_depthAttachment);
+		glBindTexture(GL_TEXTURE_2D, _depthAttachment);
+		glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, _size.x, _size.y);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _depthAttachment, 0);
+
+		return _depthAttachment;
 	}
 
 	bool Framebuffer::isComplete() const
 	{
-		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
+		glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
 		return glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+	}
+
+	GLuint Framebuffer::getColorAttachment(int index) const
+	{
+		return _colorAttachments[index];
 	}
 }

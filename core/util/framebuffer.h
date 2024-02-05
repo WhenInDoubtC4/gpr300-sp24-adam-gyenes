@@ -1,19 +1,31 @@
 #pragma once
 
+#include <vector>
+#include <glm/glm.hpp>
+
 #include "../ew/external/glad.h"
 
 namespace Util
 {
-	struct Framebuffer
+	class Framebuffer
 	{
-		GLuint fbo;
-		GLuint colorBuffer;
-		GLuint depthBuffer;
-		unsigned int width;
-		unsigned int height;
+	public:
+		Framebuffer() {};
+		Framebuffer(const glm::vec2& size);
+
+		GLuint addColorAttachment(GLenum colorFormat = GL_RGBA8);
+		GLuint addDepthAttachment();
 
 		bool isComplete() const;
-	};
+		glm::vec2 getSize() const { return _size; };
+		GLuint getFBO() const { return _fbo; };
+		GLuint getColorAttachment(int index = 0) const;
+		GLuint getDepthAttachment() const { return _depthAttachment; };
 
-	Framebuffer createFramebuffer(const unsigned int width, const unsigned int height, GLenum colorFormat = GL_RGBA8);
+	private:
+		glm::vec2 _size;
+		GLuint _fbo;
+		std::vector<GLuint> _colorAttachments;
+		GLuint _depthAttachment;
+	};
 }

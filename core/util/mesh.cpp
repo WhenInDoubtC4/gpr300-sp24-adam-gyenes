@@ -9,11 +9,12 @@
 	glVertexAttribPointer(index, size, type, normalized, stride, reinterpret_cast<const void*>(pointer)); \
 	glEnableVertexAttribArray(index);
 
+//Rearranged to be compatible with ew::mesh
 constexpr GLuint POSITION_ATTRIBUTE_INDEX = 0;
-constexpr GLuint TANGENT_ATTRIBUTE_INDEX = 1;
-constexpr GLuint BITANGENT_ATTRIBUTE_INDEX = 2;
-constexpr GLuint NORMAL_ATTRIBUTE_INDEX = 3;
-constexpr GLuint UV_ATTRIBUTE_INDEX = 4;
+constexpr GLuint NORMAL_ATTRIBUTE_INDEX = 1;
+constexpr GLuint UV_ATTRIBUTE_INDEX = 2;
+constexpr GLuint TANGENT_ATTRIBUTE_INDEX = 3;
+constexpr GLuint BITANGENT_ATTRIBUTE_INDEX = 4;
 
 namespace Util
 {

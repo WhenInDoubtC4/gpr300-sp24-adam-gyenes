@@ -14,6 +14,7 @@
 #include <ew/cameraController.h>
 #include <ew/transform.h>
 #include <ew/texture.h>
+#include <ew/procGen.h>
 
 #include <util/model.h>
 #include <util/framebuffer.h>
@@ -70,6 +71,8 @@ int dofBlurSize = 8;
 float dofMinDistance = 1.0;
 float dofMaxDistance = 3.0;
 
+Util::Framebuffer shadowFramebuffer;
+
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
 	cameraFov = 60.f;
@@ -105,6 +108,16 @@ int main() {
 	GLFWwindow* window = initWindow("Assignment 2", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 	createPostprocessFramebuffer(screenWidth, screenHeight);
+	
+	//Create shadow framebuffer
+	shadowFramebuffer = Util::Framebuffer(glm::vec2(2048));
+	glBindTexture(GL_TEXTURE_2D, shadowFramebuffer.addDepthAttachment());
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float boderColor[4] = { 1.f, 1.f, 1.f, 1.f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, boderColor);
 
 	camera.position = CAMERA_INIT_POSITION;
 	camera.target = CAMERA_INIT_TARGET;
@@ -115,6 +128,9 @@ int main() {
 	Util::Shader postprocessShader("assets/postprocess.vert", "assets/postprocess.frag");
 	Util::Model monkeyModel("assets/Suzanne.obj");
 	ew::Transform monkeyTransform;
+	ew::Mesh planeMesh(ew::createPlane(10.f, 10.f, 1));
+	ew::Transform planeTransform;
+	planeTransform.position.y = -2.f;
 
 	brickColorTexture = ew::loadTexture("assets/brick2_color.jpg");
 	brickNormalTexture = ew::loadTexture("assets/brick2_normal.jpg");
@@ -153,6 +169,9 @@ int main() {
 
 		shader.use();
 		shader.setMat4("_model", monkeyTransform.modelMatrix());
+		monkeyModel.draw();
+		shader.setMat4("_model", planeTransform.modelMatrix());
+		planeMesh.draw();
 		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		shader.setVec3("_cameraPosition", camera.position);
 		shader.setInt("_mainTex", 0);
@@ -163,8 +182,6 @@ int main() {
 		shader.setFloat("_material.diffuseStrength", material.diffuseStrength);
 		shader.setFloat("_material.specularStrength", material.specularStrength);
 		shader.setFloat("_material.shininess", material.shininess);
-
-		monkeyModel.draw();
 
 		//Render to screen (default) fbo
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);

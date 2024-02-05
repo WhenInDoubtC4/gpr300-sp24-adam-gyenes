@@ -16,7 +16,8 @@ struct Material
 };
 
 uniform vec3 _cameraPosition;
-uniform vec3 _lightDirection = vec3(0.0, -1.0, 0.0);
+uniform vec3 _lightPosition;
+//uniform vec3 _lightDirection = vec3(0.0, -1.0, 0.0);
 uniform vec3 _ambientColor;
 uniform vec3 _lightColor;
 uniform sampler2D _mainTex;
@@ -30,6 +31,7 @@ void main()
 	//Light calculations
 	vec3 normal = texture(_normalTex, fs_in.UV).rgb;
 	normal = normalize(normal * 2.0 - 1.0);
+	vec3 _lightDirection = normalize(fs_in.pos - _lightPosition);
 	vec3 toLight =  fs_in.tbn * -_lightDirection;
 	vec3 toCamera = fs_in.tbn * normalize(_cameraPosition - fs_in.pos);
 	float diffuseFactor = max(dot(normal, toLight), 0.0);

@@ -72,6 +72,8 @@ float dofMinDistance = 1.0;
 float dofMaxDistance = 3.0;
 
 Util::Framebuffer shadowFramebuffer;
+//Light that's a camera in disguise
+ew::Camera directionalLight;
 
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
@@ -124,6 +126,8 @@ int main() {
 	camera.aspectRatio = float(screenWidth) / float(screenHeight);
 	camera.fov = cameraFov;
 
+	directionalLight.position = glm::vec3(0.f, 10.f, 0.f);
+
 	Util::Shader shader("assets/lit.vert", "assets/lit.frag");
 	Util::Shader postprocessShader("assets/postprocess.vert", "assets/postprocess.frag");
 	Util::Model monkeyModel("assets/Suzanne.obj");
@@ -174,6 +178,7 @@ int main() {
 		planeMesh.draw();
 		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		shader.setVec3("_cameraPosition", camera.position);
+		shader.setVec3("_lightPosition", directionalLight.position);
 		shader.setInt("_mainTex", 0);
 		shader.setInt("_normalTex", 1);
 		shader.setVec3("_ambientColor", ambientColor);
@@ -225,6 +230,7 @@ void drawUI() {
 	{
 		ImGui::ColorEdit3("Ambient color", &ambientColor[0], ImGuiColorEditFlags_Float);
 		ImGui::ColorEdit3("Light color", &lightColor[0], ImGuiColorEditFlags_Float);
+		ImGui::DragFloat3("Light position", &directionalLight.position.x, 0.1f, -10.f, 10.f);
 	}
 	if (ImGui::CollapsingHeader("Material"))
 	{

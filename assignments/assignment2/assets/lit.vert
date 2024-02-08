@@ -8,6 +8,7 @@ layout(location = 4) in vec3 vBitangent;
 
 uniform mat4 _model;
 uniform mat4 _viewProjection;
+uniform mat4 _lightViewProjection;
 
 out Surface
 {
@@ -15,6 +16,8 @@ out Surface
 	mat3 tbn;
 	vec2 UV;
 } vs_out;
+
+out vec4 vs_lightSpacePos;
 
 void main()
 {
@@ -26,5 +29,6 @@ void main()
 	vs_out.pos = vec3(_model * vec4(vPos, 1.0));
 	vs_out.tbn = tbn;
 	vs_out.UV = vUV;
+	vs_lightSpacePos = _lightViewProjection * _model * vec4(vPos, 1.0);
 	gl_Position = _viewProjection * _model * vec4(vPos, 1.0);
 }

@@ -39,9 +39,9 @@ float cameraFov = 60.f;
 
 struct Material
 {
-	float ambientStrength = 1.0;
-	float diffuseStrength = 0.5;
-	float specularStrength = 0.5;
+	float ambientStrength = 0.3;
+	float diffuseStrength = 0.3;
+	float specularStrength = 0.3;
 	float shininess = 128;
 };
 
@@ -127,7 +127,7 @@ int main() {
 	camera.fov = cameraFov;
 
 	directionalLight.orthographic = true;
-	directionalLight.position = glm::vec3(-3.f, 3.f, 7.f);
+	directionalLight.position = glm::vec3(-1.f, 4.f, 7.f);
 
 	Util::Shader depthOnlyShader("assets/depthOnly.vert", "assets/depthOnly.frag");
 	Util::Shader shader("assets/lit.vert", "assets/lit.frag");
@@ -138,6 +138,7 @@ int main() {
 	//Using a basic plane mesh from Maya since procGen doesn't calculate TBNs
 	Util::Model planeModel("assets/plane.fbx");
 	ew::Transform planeTransform;
+	planeTransform.position.z = -2.5;
 	planeTransform.position.y = -2.f;
 
 	brickColorTexture = ew::loadTexture("assets/brick2_color.jpg");
@@ -154,7 +155,7 @@ int main() {
 	glCreateVertexArrays(1, &screenVAO);
 
 	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
+	//glCullFace(GL_BACK);
 	glEnable(GL_DEPTH_TEST);
 
 	while (!glfwWindowShouldClose(window)) {
@@ -168,10 +169,12 @@ int main() {
 		camera.fov = cameraFov;
 
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
-		glBindTextureUnit(0, currentColorTexture);
-		glBindTextureUnit(1, currentNormalTexture);
+		glBindTextureUnit(0, shadowFramebuffer.getDepthAttachment());
+		glBindTextureUnit(1, currentColorTexture);
+		glBindTextureUnit(2, currentNormalTexture);
 
 		//Render to shadow map
+		glCullFace(GL_FRONT);
 		glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer.getFBO());
 		glViewport(0, 0, shadowFramebuffer.getSize().x, shadowFramebuffer.getSize().y);
 		glClear(GL_DEPTH_BUFFER_BIT);
@@ -186,6 +189,7 @@ int main() {
 		planeModel.draw();
 
 		//Render to color buffer
+		glCullFace(GL_BACK);
 		startRenderSceneToFramebuffer(postprocessFramebuffer);
 
 		shader.use();
@@ -195,10 +199,12 @@ int main() {
 		//planeMesh.draw();
 		planeModel.draw();
 		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		shader.setMat4("_lightViewProjection", lightMatrix);
 		shader.setVec3("_cameraPosition", camera.position);
 		shader.setVec3("_lightPosition", directionalLight.position);
-		shader.setInt("_mainTex", 0);
-		shader.setInt("_normalTex", 1);
+		shader.setInt("_shadowMap", 0);
+		shader.setInt("_mainTex", 1);
+		shader.setInt("_normalTex", 2);
 		shader.setVec3("_ambientColor", ambientColor);
 		shader.setVec3("_lightColor", lightColor);
 		shader.setFloat("_material.ambientStrength", material.ambientStrength);

@@ -7,6 +7,8 @@ in Surface
 	vec2 UV;
 } fs_in;
 
+in vec4 vs_lightSpacePos;
+
 struct Material
 {
 	float ambientStrength;
@@ -14,6 +16,8 @@ struct Material
 	float specularStrength;
 	float shininess;
 };
+
+uniform sampler2D _shadowMap;
 
 uniform vec3 _cameraPosition;
 uniform vec3 _lightPosition;
@@ -25,6 +29,32 @@ uniform sampler2D _normalTex;
 uniform Material _material;
 
 out vec4 FragColor;
+
+float calcShadow(sampler2D shadowMap, vec3 normal, vec3 toLight, vec4 lightSpacePosition)
+{
+	vec3 samplerCoord = lightSpacePosition.xyz / lightSpacePosition.w;
+	samplerCoord = samplerCoord * 0.5 + 0.5;
+
+	float minBias = 0.005;
+	float maxBias = 0.015;
+	float bias = max(maxBias * (1.0 - dot(normal, toLight)), minBias);
+	float depth = samplerCoord.z - bias;
+	float shadowMapDepth = texture(shadowMap, samplerCoord.xy).b;
+
+	float totalShadow = 0.0;
+	vec2 texelOffset = 1.0 / textureSize(_shadowMap, 0);
+	for (int y = -1; y <= 1; y++)
+	{
+		for (int x = -1; x <= 1; x++)
+		{
+			vec2 uv = samplerCoord.xy + vec2(x * texelOffset.x, y * texelOffset.y);
+			totalShadow += step(texture(_shadowMap, uv).r, depth);
+		}
+	}
+
+	//return step(shadowMapDepth, depth);
+	return totalShadow / 9.0;
+}
 
 void main()
 {
@@ -40,9 +70,12 @@ void main()
 	vec3 h = normalize(toLight + toCamera);
 	float specularFactor = pow(max(dot(normal, h), 0.0), _material.shininess);
 
+	float shadow = calcShadow(_shadowMap, normal, toLight, vs_lightSpacePos);
+
 	vec3 light = _ambientColor * _material.ambientStrength;
 	light += _lightColor * diffuseFactor * _material.diffuseStrength;
 	light += _lightColor * specularFactor * _material.specularStrength;
+	light += 1.0 - shadow;
 	vec3 object = texture(_mainTex, fs_in.UV).rgb;
 
 	FragColor = vec4(object * light, 1.0);

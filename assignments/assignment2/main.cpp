@@ -126,13 +126,17 @@ int main() {
 	camera.aspectRatio = float(screenWidth) / float(screenHeight);
 	camera.fov = cameraFov;
 
-	directionalLight.position = glm::vec3(0.f, 10.f, 0.f);
+	directionalLight.orthographic = true;
+	directionalLight.position = glm::vec3(-3.f, 3.f, 7.f);
 
+	Util::Shader depthOnlyShader("assets/depthOnly.vert", "assets/depthOnly.frag");
 	Util::Shader shader("assets/lit.vert", "assets/lit.frag");
 	Util::Shader postprocessShader("assets/postprocess.vert", "assets/postprocess.frag");
 	Util::Model monkeyModel("assets/Suzanne.obj");
 	ew::Transform monkeyTransform;
-	ew::Mesh planeMesh(ew::createPlane(10.f, 10.f, 1));
+	//ew::Mesh planeMesh(ew::createPlane(10.f, 10.f, 1));
+	//Using a basic plane mesh from Maya since procGen doesn't calculate TBNs
+	Util::Model planeModel("assets/plane.fbx");
 	ew::Transform planeTransform;
 	planeTransform.position.y = -2.f;
 
@@ -158,24 +162,38 @@ int main() {
 
 		float time = (float)glfwGetTime();
 		deltaTime = time - prevFrameTime;
-		prevFrameTime = time;
-
-		//Start rendering to offscreen fbo
-		startRenderSceneToFramebuffer(postprocessFramebuffer);
+		prevFrameTime = time;		
 
 		cameraController.move(window, &camera, deltaTime);
 		camera.fov = cameraFov;
 
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
-
 		glBindTextureUnit(0, currentColorTexture);
 		glBindTextureUnit(1, currentNormalTexture);
+
+		//Render to shadow map
+		glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer.getFBO());
+		glViewport(0, 0, shadowFramebuffer.getSize().x, shadowFramebuffer.getSize().y);
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+		glm::mat4 lightView = glm::lookAt(directionalLight.position, glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 1.f, 0.f));
+		glm::mat4 lightMatrix = directionalLight.projectionMatrix() * lightView;
+		depthOnlyShader.use();
+		depthOnlyShader.setMat4("_view", lightMatrix);
+		depthOnlyShader.setMat4("_model", monkeyTransform.modelMatrix());
+		monkeyModel.draw();
+		depthOnlyShader.setMat4("_model", planeTransform.modelMatrix());
+		planeModel.draw();
+
+		//Render to color buffer
+		startRenderSceneToFramebuffer(postprocessFramebuffer);
 
 		shader.use();
 		shader.setMat4("_model", monkeyTransform.modelMatrix());
 		monkeyModel.draw();
 		shader.setMat4("_model", planeTransform.modelMatrix());
-		planeMesh.draw();
+		//planeMesh.draw();
+		planeModel.draw();
 		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		shader.setVec3("_cameraPosition", camera.position);
 		shader.setVec3("_lightPosition", directionalLight.position);
@@ -287,6 +305,13 @@ void drawUI() {
 		}
 		ImGui::Unindent();
 	}
+	ImGui::End();
+
+	ImGui::Begin("Shadow map");
+	ImGui::BeginChild("Shadow map");
+	ImVec2 windowSize = ImGui::GetWindowSize();
+	ImGui::Image(reinterpret_cast<ImTextureID>(shadowFramebuffer.getDepthAttachment()), windowSize, ImVec2(0.f, 1.f), ImVec2(1.f, 0.f));
+	ImGui::EndChild();
 	ImGui::End();
 
 	ImGui::Render();

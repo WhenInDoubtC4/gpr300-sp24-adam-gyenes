@@ -39,11 +39,14 @@ float cameraFov = 60.f;
 
 struct Material
 {
-	float ambientStrength = 0.3;
-	float diffuseStrength = 0.3;
-	float specularStrength = 0.3;
+	float ambientStrength = 0.6f;
+	float diffuseStrength = 1.f;
+	float specularStrength = 1.f;
 	float shininess = 128;
 };
+float shadowBrightness = 0.3;
+float shadowMinBias = 0.005f;
+float shadowMaxBias = 0.015f;
 
 Material material;
 glm::vec3 lightColor = glm::vec3(1.0);
@@ -134,8 +137,7 @@ int main() {
 	Util::Shader postprocessShader("assets/postprocess.vert", "assets/postprocess.frag");
 	Util::Model monkeyModel("assets/Suzanne.obj");
 	ew::Transform monkeyTransform;
-	//ew::Mesh planeMesh(ew::createPlane(10.f, 10.f, 1));
-	//Using a basic plane mesh from Maya since procGen doesn't calculate TBNs
+	//Using a basic plane mesh from Maya since procGen doesn't calculate TBN
 	Util::Model planeModel("assets/plane.fbx");
 	ew::Transform planeTransform;
 	planeTransform.position.z = -2.5;
@@ -196,12 +198,14 @@ int main() {
 		shader.setMat4("_model", monkeyTransform.modelMatrix());
 		monkeyModel.draw();
 		shader.setMat4("_model", planeTransform.modelMatrix());
-		//planeMesh.draw();
 		planeModel.draw();
 		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		shader.setMat4("_lightViewProjection", lightMatrix);
 		shader.setVec3("_cameraPosition", camera.position);
 		shader.setVec3("_lightPosition", directionalLight.position);
+		shader.setFloat("_shadowBrightness", shadowBrightness);
+		shader.setFloat("_shadowMinBias", shadowMinBias);
+		shader.setFloat("_shadowMaxBias", shadowMaxBias);
 		shader.setInt("_shadowMap", 0);
 		shader.setInt("_mainTex", 1);
 		shader.setInt("_normalTex", 2);
@@ -255,6 +259,10 @@ void drawUI() {
 		ImGui::ColorEdit3("Ambient color", &ambientColor[0], ImGuiColorEditFlags_Float);
 		ImGui::ColorEdit3("Light color", &lightColor[0], ImGuiColorEditFlags_Float);
 		ImGui::DragFloat3("Light position", &directionalLight.position.x, 0.1f, -10.f, 10.f);
+		ImGui::SliderFloat("Shadow brightness", &shadowBrightness, 0.f, 1.f);
+		ImGui::DragFloat("Shadow min bias", &shadowMinBias, 0.001f);
+		ImGui::DragFloat("Shadow max bias", &shadowMaxBias, 0.001f);
+		ImGui::SliderFloat("Shadow frustum size", &directionalLight.orthoHeight, 0.f, 20.f);
 	}
 	if (ImGui::CollapsingHeader("Material"))
 	{

@@ -13,7 +13,11 @@ namespace Util
 		Framebuffer() {};
 		Framebuffer(const glm::vec2& size);
 
-		GLuint addColorAttachment(GLenum colorFormat = GL_RGBA8);
+		GLuint addColorAttachment(GLenum colorFormat = GL_RGBA8, 
+			GLint wrapS = GL_CLAMP_TO_BORDER,
+			GLint wrapT = GL_CLAMP_TO_BORDER,
+			GLint magFilter = GL_NEAREST,
+			GLint minFilter = GL_NEAREST);
 		GLuint addDepthAttachment();
 
 		bool isComplete() const;
@@ -27,5 +31,7 @@ namespace Util
 		GLuint _fbo;
 		std::vector<GLuint> _colorAttachments;
 		GLuint _depthAttachment;
+
+		void setGLDrawBuffers();
 	};
 }

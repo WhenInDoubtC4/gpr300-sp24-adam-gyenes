@@ -132,6 +132,13 @@ int main() {
 	directionalLight.orthographic = true;
 	directionalLight.position = glm::vec3(-1.f, 4.f, 7.f);
 
+	//Create G buffer with 3 color attachments
+	Util::Framebuffer gBuffer(glm::vec2(2048, 2048));
+	gBuffer.addColorAttachment(GL_RGB32F); //World position
+	gBuffer.addColorAttachment(GL_RGB16F); //World normal
+	gBuffer.addColorAttachment(GL_RGB16F); //Albedo
+	if (!gBuffer.isComplete()) printf("ERROR: G-buffer is not complete!\n");
+
 	Util::Shader depthOnlyShader("assets/depthOnly.vert", "assets/depthOnly.frag");
 	Util::Shader shader("assets/lit.vert", "assets/lit.frag");
 	Util::Shader postprocessShader("assets/postprocess.vert", "assets/postprocess.frag");

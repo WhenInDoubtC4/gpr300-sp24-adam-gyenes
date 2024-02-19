@@ -25,7 +25,7 @@ namespace Util
 		glCreateFramebuffers(1, &_fbo);
 	}
 
-	GLuint Framebuffer::addColorAttachment(GLenum colorFormat)
+	GLuint Framebuffer::addColorAttachment(GLenum colorFormat, GLint wrapS, GLint wrapT, GLint magFilter, GLint minFilter)
 	{
 		if (_colorAttachments.size() >= MAX_COLOR_ATTACHMENTS)
 		{
@@ -40,9 +40,19 @@ namespace Util
 		glGenTextures(1, &colorAttachment);
 		glBindTexture(GL_TEXTURE_2D, colorAttachment);
 		glTexStorage2D(GL_TEXTURE_2D, 1, colorFormat, _size.x, _size.y);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+
 		glFramebufferTexture(GL_FRAMEBUFFER, COLOR_ATTACHMENTS[_colorAttachments.size()], colorAttachment, 0);
 
 		_colorAttachments.push_back(colorAttachment);
+
+		//Tell OpenGL which attachments to draw to
+		setGLDrawBuffers();
+
 		return colorAttachment;
 	}
 
@@ -54,6 +64,9 @@ namespace Util
 		glBindTexture(GL_TEXTURE_2D, _depthAttachment);
 		glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, _size.x, _size.y);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _depthAttachment, 0);
+
+		//Tell OpenGL which attachments to draw to
+		setGLDrawBuffers();
 
 		return _depthAttachment;
 	}
@@ -67,5 +80,16 @@ namespace Util
 	GLuint Framebuffer::getColorAttachment(int index) const
 	{
 		return _colorAttachments[index];
+	}
+
+	void Framebuffer::setGLDrawBuffers()
+	{
+		std::vector<GLenum> drawBuffers(_colorAttachments.size());
+		for (int i = 0; i < _colorAttachments.size(); i++)
+		{
+			drawBuffers.push_back(COLOR_ATTACHMENTS[i]);
+		}
+		if (_depthAttachment != 0) drawBuffers.push_back(GL_DEPTH_ATTACHMENT);
+		glDrawBuffers(drawBuffers.size(), drawBuffers.data());
 	}
 }

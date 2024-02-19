@@ -1,5 +1,7 @@
 #include "framebuffer.h"
 
+#include <cstdint>
+
 constexpr int MAX_COLOR_ATTACHMENTS = 8;
 
 //Why :(
@@ -77,19 +79,29 @@ namespace Util
 		return glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
 	}
 
+	GLuint Framebuffer::getFBO() const
+	{
+		return _fbo;
+	}
+
 	GLuint Framebuffer::getColorAttachment(int index) const
 	{
 		return _colorAttachments[index];
 	}
 
-	void Framebuffer::setGLDrawBuffers()
+	void Framebuffer::setGLDrawBuffers() const
 	{
-		std::vector<GLenum> drawBuffers(_colorAttachments.size());
+		glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
+
+		std::vector<GLenum> drawBuffers;
 		for (int i = 0; i < _colorAttachments.size(); i++)
 		{
 			drawBuffers.push_back(COLOR_ATTACHMENTS[i]);
 		}
 		if (_depthAttachment != 0) drawBuffers.push_back(GL_DEPTH_ATTACHMENT);
-		glDrawBuffers(drawBuffers.size(), drawBuffers.data());
+
+		//*scream*
+		uint32_t s = drawBuffers.size() - 1;
+		glDrawBuffers(s, drawBuffers.data());
 	}
 }

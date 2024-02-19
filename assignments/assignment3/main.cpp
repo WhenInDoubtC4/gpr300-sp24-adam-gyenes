@@ -78,6 +78,8 @@ Util::Framebuffer shadowFramebuffer;
 //Light that's a camera in disguise
 ew::Camera directionalLight;
 
+Util::Framebuffer gBuffer;
+
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
 	cameraFov = 60.f;
@@ -109,12 +111,29 @@ void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-int main() {
-	GLFWwindow* window = initWindow("Assignment 3", screenWidth, screenHeight);
-	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-	createPostprocessFramebuffer(screenWidth, screenHeight);
-	
-	//Create shadow framebuffer
+//Forced to use pointers here since it has no default constructor
+Util::Shader* gBufferShader;
+Util::Shader* depthOnlyShader;
+Util::Shader* mainShader;
+Util::Shader* postprocessShader;
+
+Util::Model* monkeyModel;
+ew::Transform monkeyTransform;
+Util::Model* planeModel;
+ew::Transform planeTransform;
+
+void setupScene()
+{
+	//Main camera and lighting
+	camera.position = CAMERA_INIT_POSITION;
+	camera.target = CAMERA_INIT_TARGET;
+	camera.aspectRatio = float(screenWidth) / float(screenHeight);
+	camera.fov = cameraFov;
+
+	directionalLight.orthographic = true;
+	directionalLight.position = glm::vec3(-1.f, 4.f, 7.f);
+
+	//Shadow buffer
 	shadowFramebuffer = Util::Framebuffer(glm::vec2(2048));
 	glBindTexture(GL_TEXTURE_2D, shadowFramebuffer.addDepthAttachment());
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -124,32 +143,28 @@ int main() {
 	float boderColor[4] = { 1.f, 1.f, 1.f, 1.f };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, boderColor);
 
-	camera.position = CAMERA_INIT_POSITION;
-	camera.target = CAMERA_INIT_TARGET;
-	camera.aspectRatio = float(screenWidth) / float(screenHeight);
-	camera.fov = cameraFov;
-
-	directionalLight.orthographic = true;
-	directionalLight.position = glm::vec3(-1.f, 4.f, 7.f);
-
-	//Create G buffer with 3 color attachments
-	Util::Framebuffer gBuffer(glm::vec2(2048, 2048));
+	//GBuffer (with 3 color attachments)
+	gBuffer = Util::Framebuffer(glm::vec2(2048, 2048));
 	gBuffer.addColorAttachment(GL_RGB32F); //World position
 	gBuffer.addColorAttachment(GL_RGB16F); //World normal
 	gBuffer.addColorAttachment(GL_RGB16F); //Albedo
 	if (!gBuffer.isComplete()) printf("ERROR: G-buffer is not complete!\n");
 
-	Util::Shader depthOnlyShader("assets/depthOnly.vert", "assets/depthOnly.frag");
-	Util::Shader shader("assets/lit.vert", "assets/lit.frag");
-	Util::Shader postprocessShader("assets/postprocess.vert", "assets/postprocess.frag");
-	Util::Model monkeyModel("assets/Suzanne.obj");
-	ew::Transform monkeyTransform;
+	//Shader setup
+	gBufferShader = new Util::Shader("assets/lit.vert", "assets/geometryPass.frag");
+	depthOnlyShader = new Util::Shader("assets/depthOnly.vert", "assets/depthOnly.frag");
+	mainShader = new Util::Shader("assets/lit.vert", "assets/lit.frag");
+	postprocessShader = new Util::Shader("assets/postprocess.vert", "assets/postprocess.frag");
+
+	//Model setup
+	//TODO: Do some crazy duplication here
+	monkeyModel = new Util::Model("assets/Suzanne.obj");
 	//Using a basic plane mesh from Maya since procGen doesn't calculate TBN
-	Util::Model planeModel("assets/plane.fbx");
-	ew::Transform planeTransform;
+	planeModel = new Util::Model("assets/plane.fbx");
 	planeTransform.position.z = -2.5;
 	planeTransform.position.y = -2.f;
 
+	//Load textures
 	brickColorTexture = ew::loadTexture("assets/brick2_color.jpg");
 	brickNormalTexture = ew::loadTexture("assets/brick2_normal.jpg");
 
@@ -158,6 +173,35 @@ int main() {
 
 	currentColorTexture = brickColorTexture;
 	currentNormalTexture = brickNormalTexture;
+}
+
+void cleanup()
+{
+	delete gBufferShader;
+	delete depthOnlyShader;
+	delete mainShader;
+	delete postprocessShader;
+
+	delete monkeyModel;
+	delete planeModel;
+}
+
+void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
+{
+	shader->use();
+	shader->setMat4("_view", viewMatrix);
+	shader->setMat4("_model", monkeyTransform.modelMatrix());
+	monkeyModel->draw();
+	shader->setMat4("_model", planeTransform.modelMatrix());
+	planeModel->draw();
+}
+
+int main() {
+	GLFWwindow* window = initWindow("Assignment 3", screenWidth, screenHeight);
+	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+	createPostprocessFramebuffer(screenWidth, screenHeight);
+	
+	setupScene();
 
 	//Create dummy VAO for screen
 	GLuint screenVAO;
@@ -182,6 +226,15 @@ int main() {
 		glBindTextureUnit(1, currentColorTexture);
 		glBindTextureUnit(2, currentNormalTexture);
 
+		//Render to GBuffer
+		glCullFace(GL_BACK);
+		glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.getFBO());
+		glViewport(0, 0, gBuffer.getSize().x, gBuffer.getSize().y);
+		glClearColor(0.f, 0.f, 0.f, 1.f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		drawScene(gBufferShader, camera.projectionMatrix() * camera.viewMatrix());
+		gBufferShader->setInt("_mainTex", 1);
+
 		//Render to shadow map
 		glCullFace(GL_FRONT);
 		glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer.getFBO());
@@ -190,38 +243,28 @@ int main() {
 
 		glm::mat4 lightView = glm::lookAt(directionalLight.position, glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 1.f, 0.f));
 		glm::mat4 lightMatrix = directionalLight.projectionMatrix() * lightView;
-		depthOnlyShader.use();
-		depthOnlyShader.setMat4("_view", lightMatrix);
-		depthOnlyShader.setMat4("_model", monkeyTransform.modelMatrix());
-		monkeyModel.draw();
-		depthOnlyShader.setMat4("_model", planeTransform.modelMatrix());
-		planeModel.draw();
+		drawScene(depthOnlyShader, lightMatrix);
 
 		//Render to color buffer
 		glCullFace(GL_BACK);
 		startRenderSceneToFramebuffer(postprocessFramebuffer);
 
-		shader.use();
-		shader.setMat4("_model", monkeyTransform.modelMatrix());
-		monkeyModel.draw();
-		shader.setMat4("_model", planeTransform.modelMatrix());
-		planeModel.draw();
-		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
-		shader.setMat4("_lightViewProjection", lightMatrix);
-		shader.setVec3("_cameraPosition", camera.position);
-		shader.setVec3("_lightPosition", directionalLight.position);
-		shader.setFloat("_shadowBrightness", shadowBrightness);
-		shader.setFloat("_shadowMinBias", shadowMinBias);
-		shader.setFloat("_shadowMaxBias", shadowMaxBias);
-		shader.setInt("_shadowMap", 0);
-		shader.setInt("_mainTex", 1);
-		shader.setInt("_normalTex", 2);
-		shader.setVec3("_ambientColor", ambientColor);
-		shader.setVec3("_lightColor", lightColor);
-		shader.setFloat("_material.ambientStrength", material.ambientStrength);
-		shader.setFloat("_material.diffuseStrength", material.diffuseStrength);
-		shader.setFloat("_material.specularStrength", material.specularStrength);
-		shader.setFloat("_material.shininess", material.shininess);
+		drawScene(mainShader, camera.projectionMatrix() * camera.viewMatrix());
+		mainShader->setMat4("_lightViewProjection", lightMatrix);
+		mainShader->setVec3("_cameraPosition", camera.position);
+		mainShader->setVec3("_lightPosition", directionalLight.position);
+		mainShader->setFloat("_shadowBrightness", shadowBrightness);
+		mainShader->setFloat("_shadowMinBias", shadowMinBias);
+		mainShader->setFloat("_shadowMaxBias", shadowMaxBias);
+		mainShader->setInt("_shadowMap", 0);
+		mainShader->setInt("_mainTex", 1);
+		mainShader->setInt("_normalTex", 2);
+		mainShader->setVec3("_ambientColor", ambientColor);
+		mainShader->setVec3("_lightColor", lightColor);
+		mainShader->setFloat("_material.ambientStrength", material.ambientStrength);
+		mainShader->setFloat("_material.diffuseStrength", material.diffuseStrength);
+		mainShader->setFloat("_material.specularStrength", material.specularStrength);
+		mainShader->setFloat("_material.shininess", material.shininess);
 
 		//Render to screen (default) fbo
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -229,21 +272,21 @@ int main() {
 
 		glBindTextureUnit(0, postprocessFramebuffer.getColorAttachment());
 		glBindTextureUnit(1, postprocessFramebuffer.getDepthAttachment());
-		postprocessShader.use();
+		postprocessShader->use();
 
-		postprocessShader.setSubroutine(GL_FRAGMENT_SHADER, {
+		postprocessShader->setSubroutine(GL_FRAGMENT_SHADER, {
 			std::make_pair("_blurFunction", boxBlurEnable ? "blurEnabled" : "blurDisabled"),
 			std::make_pair("_dofFunction", dofEnable ? "dofEnabled" : "dofDisabled"),
 			std::make_pair("_chromaticAberrationFunction", chromaticAberrationEnable ? "chromaticAberrationEnabled" : "chromaticAberrationDisabled") });
 
-		postprocessShader.setInt("_colorBuffer", 0);
-		postprocessShader.setInt("_depthBuffer", 1);
-		postprocessShader.setVec2("_focusPoint", focusPoint);
-		postprocessShader.setInt("_boxBlurSize", boxBlurSize);
-		postprocessShader.setFloat("_chromaticAberrationSize", chromaticAberrationSize);
-		postprocessShader.setFloat("_dofMinDistance", dofMinDistance);
-		postprocessShader.setFloat("_dofMaxDistance", dofMaxDistance);
-		postprocessShader.setInt("_dofBlurSize", dofBlurSize);
+		postprocessShader->setInt("_colorBuffer", 0);
+		postprocessShader->setInt("_depthBuffer", 1);
+		postprocessShader->setVec2("_focusPoint", focusPoint);
+		postprocessShader->setInt("_boxBlurSize", boxBlurSize);
+		postprocessShader->setFloat("_chromaticAberrationSize", chromaticAberrationSize);
+		postprocessShader->setFloat("_dofMinDistance", dofMinDistance);
+		postprocessShader->setFloat("_dofMaxDistance", dofMaxDistance);
+		postprocessShader->setInt("_dofBlurSize", dofBlurSize);
 
 		glBindVertexArray(screenVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -252,6 +295,9 @@ int main() {
 
 		glfwSwapBuffers(window);
 	}
+
+	cleanup();
+
 	printf("Shutting down...");
 }
 
@@ -333,6 +379,14 @@ void drawUI() {
 	ImVec2 windowSize = ImGui::GetWindowSize();
 	ImGui::Image(reinterpret_cast<ImTextureID>(shadowFramebuffer.getDepthAttachment()), windowSize, ImVec2(0.f, 1.f), ImVec2(1.f, 0.f));
 	ImGui::EndChild();
+	ImGui::End();
+
+	ImGui::Begin("GBuffers");
+	ImVec2 texSize = ImVec2(gBuffer.getSize().x / 8.f, gBuffer.getSize().y / 8.f);
+	for (size_t i = 0; i < gBuffer.getNumColorAttachments(); i++)
+	{
+		ImGui::Image(reinterpret_cast<ImTextureID>(gBuffer.getColorAttachment(i)), texSize, ImVec2(0, 1), ImVec2(1, 0));
+	}
 	ImGui::End();
 
 	ImGui::Render();

@@ -22,16 +22,16 @@ namespace Util
 
 		bool isComplete() const;
 		glm::vec2 getSize() const { return _size; };
-		GLuint getFBO() const { return _fbo; };
+		GLuint getFBO() const;
 		GLuint getColorAttachment(int index = 0) const;
 		GLuint getDepthAttachment() const { return _depthAttachment; };
+		size_t getNumColorAttachments() const { return _colorAttachments.size(); };
+		void setGLDrawBuffers() const;
 
 	private:
 		glm::vec2 _size;
 		GLuint _fbo;
 		std::vector<GLuint> _colorAttachments;
 		GLuint _depthAttachment;
-
-		void setGLDrawBuffers();
 	};
 }

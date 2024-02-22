@@ -12,10 +12,12 @@ in Surface
 } fs_in;
 
 uniform sampler2D _mainTex;
+uniform sampler2D _normalTex;
 
 void main()
 {
 	gPosition = fs_in.pos;
 	gAlbedo = texture(_mainTex, fs_in.UV).rgb;
-	//TODO: Figure normal out
+	//gNormal = transpose(fs_in.tbn)[2]; //WS normal form TBN
+	gNormal = fs_in.tbn * texture(_normalTex, fs_in.UV).rgb; //WS normal
 }

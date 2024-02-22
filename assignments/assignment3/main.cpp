@@ -114,7 +114,7 @@ void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
 //Forced to use pointers here since it has no default constructor
 Util::Shader* gBufferShader;
 Util::Shader* depthOnlyShader;
-Util::Shader* mainShader;
+//Util::Shader* mainShader;
 Util::Shader* postprocessShader;
 
 Util::Model* monkeyModel;
@@ -143,17 +143,18 @@ void setupScene()
 	float boderColor[4] = { 1.f, 1.f, 1.f, 1.f };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, boderColor);
 
-	//GBuffer (with 3 color attachments)
+	//GBuffer (with 3 color attachments + depth)
 	gBuffer = Util::Framebuffer(glm::vec2(2048, 2048));
 	gBuffer.addColorAttachment(GL_RGB32F); //World position
 	gBuffer.addColorAttachment(GL_RGB16F); //World normal
 	gBuffer.addColorAttachment(GL_RGB16F); //Albedo
+	gBuffer.addDepthAttachment(); //Depth buffer
 	if (!gBuffer.isComplete()) printf("ERROR: G-buffer is not complete!\n");
 
 	//Shader setup
 	gBufferShader = new Util::Shader("assets/lit.vert", "assets/geometryPass.frag");
 	depthOnlyShader = new Util::Shader("assets/depthOnly.vert", "assets/depthOnly.frag");
-	mainShader = new Util::Shader("assets/lit.vert", "assets/lit.frag");
+	//mainShader = new Util::Shader("assets/lit.vert", "assets/lit.frag");
 	postprocessShader = new Util::Shader("assets/postprocess.vert", "assets/postprocess.frag");
 
 	//Model setup
@@ -179,7 +180,7 @@ void cleanup()
 {
 	delete gBufferShader;
 	delete depthOnlyShader;
-	delete mainShader;
+	//delete mainShader;
 	delete postprocessShader;
 
 	delete monkeyModel;
@@ -222,11 +223,11 @@ int main() {
 		camera.fov = cameraFov;
 
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
-		glBindTextureUnit(0, shadowFramebuffer.getDepthAttachment());
+		glBindTextureUnit(0, gBuffer.getDepthAttachment());
 		glBindTextureUnit(1, currentColorTexture);
 		glBindTextureUnit(2, currentNormalTexture);
 
-		//Render to GBuffer
+		//GBuffer geometry pass
 		glCullFace(GL_BACK);
 		glBindFramebuffer(GL_FRAMEBUFFER, gBuffer.getFBO());
 		glViewport(0, 0, gBuffer.getSize().x, gBuffer.getSize().y);
@@ -234,8 +235,9 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		drawScene(gBufferShader, camera.projectionMatrix() * camera.viewMatrix());
 		gBufferShader->setInt("_mainTex", 1);
+		gBufferShader->setInt("_normalTex", 2);
 
-		//Render to shadow map
+		//Shadow map pass
 		glCullFace(GL_FRONT);
 		glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer.getFBO());
 		glViewport(0, 0, shadowFramebuffer.getSize().x, shadowFramebuffer.getSize().y);
@@ -245,11 +247,13 @@ int main() {
 		glm::mat4 lightMatrix = directionalLight.projectionMatrix() * lightView;
 		drawScene(depthOnlyShader, lightMatrix);
 
-		//Render to color buffer
+		//Color buffer pass
 		glCullFace(GL_BACK);
 		startRenderSceneToFramebuffer(postprocessFramebuffer);
 
-		drawScene(mainShader, camera.projectionMatrix() * camera.viewMatrix());
+		glBindTextureUnit(0, shadowFramebuffer.getDepthAttachment());
+
+		/*drawScene(mainShader, camera.projectionMatrix() * camera.viewMatrix());
 		mainShader->setMat4("_lightViewProjection", lightMatrix);
 		mainShader->setVec3("_cameraPosition", camera.position);
 		mainShader->setVec3("_lightPosition", directionalLight.position);
@@ -264,9 +268,9 @@ int main() {
 		mainShader->setFloat("_material.ambientStrength", material.ambientStrength);
 		mainShader->setFloat("_material.diffuseStrength", material.diffuseStrength);
 		mainShader->setFloat("_material.specularStrength", material.specularStrength);
-		mainShader->setFloat("_material.shininess", material.shininess);
+		mainShader->setFloat("_material.shininess", material.shininess);*/
 
-		//Render to screen (default) fbo
+		//Post process pass
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -387,6 +391,7 @@ void drawUI() {
 	{
 		ImGui::Image(reinterpret_cast<ImTextureID>(gBuffer.getColorAttachment(i)), texSize, ImVec2(0, 1), ImVec2(1, 0));
 	}
+	ImGui::Image(reinterpret_cast<ImTextureID>(gBuffer.getDepthAttachment()), texSize, ImVec2(0, 1), ImVec2(1, 0));
 	ImGui::End();
 
 	ImGui::Render();

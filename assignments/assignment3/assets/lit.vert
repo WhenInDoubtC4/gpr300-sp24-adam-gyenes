@@ -22,7 +22,7 @@ void main()
 	vec3 t = normalize(vec3(_model * vec4(vTangent, 0.0)));
 	vec3 b = normalize(vec3(_model * vec4(vBitangent, 0.0)));
 	vec3 n = normalize(vec3(_model * vec4(vNormal, 0.0)));
-	mat3 tbn = transpose(mat3(t, b, n));
+	mat3 tbn = mat3(t, b, n);
 
 	vs_out.pos = vec3(_model * vec4(vPos, 1.0));
 	vs_out.tbn = tbn;

@@ -103,6 +103,8 @@ void createPostprocessFramebuffer(int width, int height)
 	gBuffer.addColorAttachment(GL_RGB16F); //Albedo
 	gBuffer.addDepthAttachment(); //Depth buffer
 	if (!gBuffer.isComplete()) printf("ERROR: G-buffer is not complete!\n");
+
+	camera.aspectRatio = float(width) / float(height);
 }
 
 void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)

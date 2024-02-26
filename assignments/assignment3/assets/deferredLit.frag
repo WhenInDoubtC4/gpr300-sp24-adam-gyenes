@@ -57,7 +57,7 @@ void main()
 	vec4 lightSpacePos = _lightViewProjection * texture(_gPosition, UV);
 
 	vec3 normal = texture(_gNormal, UV).rgb;
-	normal = normalize(normal * 2.0 - 1.0);
+	//normal = normalize(normal * 2.0 - 1.0);
 	vec3 position = texture(_gPosition, UV).xyz;
 	vec3 _lightDirection = normalize(position - _lightPosition);
 	vec3 toLight = normal * -_lightDirection;

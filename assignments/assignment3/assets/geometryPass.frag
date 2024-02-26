@@ -19,5 +19,5 @@ void main()
 	gPosition = fs_in.pos;
 	gAlbedo = texture(_mainTex, fs_in.UV).rgb;
 	//gNormal = transpose(fs_in.tbn)[2]; //WS normal form TBN
-	gNormal = fs_in.tbn * texture(_normalTex, fs_in.UV).rgb; //WS normal
+	gNormal = fs_in.tbn * normalize(texture(_normalTex, fs_in.UV).rgb * 2.0 - 1.0); //WS normal
 }

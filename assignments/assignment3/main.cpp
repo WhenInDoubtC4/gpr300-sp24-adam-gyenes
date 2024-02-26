@@ -95,6 +95,14 @@ void createPostprocessFramebuffer(int width, int height)
 	postprocessFramebuffer = Util::Framebuffer(glm::vec2(width, height));
 	postprocessFramebuffer.addColorAttachment();
 	postprocessFramebuffer.addDepthAttachment();
+
+	//GBuffer (with 3 color attachments + depth)
+	gBuffer = Util::Framebuffer(glm::vec2(width, height));
+	gBuffer.addColorAttachment(GL_RGB32F); //World position
+	gBuffer.addColorAttachment(GL_RGB16F); //World normal
+	gBuffer.addColorAttachment(GL_RGB16F); //Albedo
+	gBuffer.addDepthAttachment(); //Depth buffer
+	if (!gBuffer.isComplete()) printf("ERROR: G-buffer is not complete!\n");
 }
 
 void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
@@ -114,7 +122,7 @@ void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
 //Forced to use pointers here since it has no default constructor
 Util::Shader* gBufferShader;
 Util::Shader* depthOnlyShader;
-//Util::Shader* mainShader;
+Util::Shader* deferredLitShader;
 Util::Shader* postprocessShader;
 
 Util::Model* monkeyModel;
@@ -143,18 +151,10 @@ void setupScene()
 	float boderColor[4] = { 1.f, 1.f, 1.f, 1.f };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, boderColor);
 
-	//GBuffer (with 3 color attachments + depth)
-	gBuffer = Util::Framebuffer(glm::vec2(2048, 2048));
-	gBuffer.addColorAttachment(GL_RGB32F); //World position
-	gBuffer.addColorAttachment(GL_RGB16F); //World normal
-	gBuffer.addColorAttachment(GL_RGB16F); //Albedo
-	gBuffer.addDepthAttachment(); //Depth buffer
-	if (!gBuffer.isComplete()) printf("ERROR: G-buffer is not complete!\n");
-
 	//Shader setup
 	gBufferShader = new Util::Shader("assets/lit.vert", "assets/geometryPass.frag");
 	depthOnlyShader = new Util::Shader("assets/depthOnly.vert", "assets/depthOnly.frag");
-	//mainShader = new Util::Shader("assets/lit.vert", "assets/lit.frag");
+	deferredLitShader = new Util::Shader("assets/postprocess.vert", "assets/deferredLit.frag");
 	postprocessShader = new Util::Shader("assets/postprocess.vert", "assets/postprocess.frag");
 
 	//Model setup
@@ -180,7 +180,7 @@ void cleanup()
 {
 	delete gBufferShader;
 	delete depthOnlyShader;
-	//delete mainShader;
+	delete deferredLitShader;
 	delete postprocessShader;
 
 	delete monkeyModel;
@@ -247,53 +247,59 @@ int main() {
 		glm::mat4 lightMatrix = directionalLight.projectionMatrix() * lightView;
 		drawScene(depthOnlyShader, lightMatrix);
 
-		//Color buffer pass
+		//Deferred lit pass
 		glCullFace(GL_BACK);
-		startRenderSceneToFramebuffer(postprocessFramebuffer);
-
-		glBindTextureUnit(0, shadowFramebuffer.getDepthAttachment());
-
-		/*drawScene(mainShader, camera.projectionMatrix() * camera.viewMatrix());
-		mainShader->setMat4("_lightViewProjection", lightMatrix);
-		mainShader->setVec3("_cameraPosition", camera.position);
-		mainShader->setVec3("_lightPosition", directionalLight.position);
-		mainShader->setFloat("_shadowBrightness", shadowBrightness);
-		mainShader->setFloat("_shadowMinBias", shadowMinBias);
-		mainShader->setFloat("_shadowMaxBias", shadowMaxBias);
-		mainShader->setInt("_shadowMap", 0);
-		mainShader->setInt("_mainTex", 1);
-		mainShader->setInt("_normalTex", 2);
-		mainShader->setVec3("_ambientColor", ambientColor);
-		mainShader->setVec3("_lightColor", lightColor);
-		mainShader->setFloat("_material.ambientStrength", material.ambientStrength);
-		mainShader->setFloat("_material.diffuseStrength", material.diffuseStrength);
-		mainShader->setFloat("_material.specularStrength", material.specularStrength);
-		mainShader->setFloat("_material.shininess", material.shininess);*/
-
-		//Post process pass
+		glViewport(0, 0, gBuffer.getSize().x, gBuffer.getSize().y);
+		//TODO: Draw to post process buffer
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glBindTextureUnit(0, postprocessFramebuffer.getColorAttachment());
-		glBindTextureUnit(1, postprocessFramebuffer.getDepthAttachment());
-		postprocessShader->use();
+		glBindTextureUnit(0, gBuffer.getColorAttachment(0));
+		glBindTextureUnit(1, gBuffer.getColorAttachment(1));
+		glBindTextureUnit(2, gBuffer.getColorAttachment(2));
+		glBindTextureUnit(3, shadowFramebuffer.getDepthAttachment());
 
-		postprocessShader->setSubroutine(GL_FRAGMENT_SHADER, {
-			std::make_pair("_blurFunction", boxBlurEnable ? "blurEnabled" : "blurDisabled"),
-			std::make_pair("_dofFunction", dofEnable ? "dofEnabled" : "dofDisabled"),
-			std::make_pair("_chromaticAberrationFunction", chromaticAberrationEnable ? "chromaticAberrationEnabled" : "chromaticAberrationDisabled") });
-
-		postprocessShader->setInt("_colorBuffer", 0);
-		postprocessShader->setInt("_depthBuffer", 1);
-		postprocessShader->setVec2("_focusPoint", focusPoint);
-		postprocessShader->setInt("_boxBlurSize", boxBlurSize);
-		postprocessShader->setFloat("_chromaticAberrationSize", chromaticAberrationSize);
-		postprocessShader->setFloat("_dofMinDistance", dofMinDistance);
-		postprocessShader->setFloat("_dofMaxDistance", dofMaxDistance);
-		postprocessShader->setInt("_dofBlurSize", dofBlurSize);
+		deferredLitShader->use();
+		deferredLitShader->setMat4("_lightViewProjection", lightMatrix);
+		deferredLitShader->setVec3("_cameraPosition", camera.position);
+		deferredLitShader->setVec3("_lightPosition", directionalLight.position);
+		deferredLitShader->setFloat("_shadowBrightness", shadowBrightness);
+		deferredLitShader->setFloat("_shadowMinBias", shadowMinBias);
+		deferredLitShader->setFloat("_shadowMaxBias", shadowMaxBias);
+		deferredLitShader->setVec3("_ambientColor", ambientColor);
+		deferredLitShader->setVec3("_lightColor", lightColor);
+		deferredLitShader->setFloat("_material.ambientStrength", material.ambientStrength);
+		deferredLitShader->setFloat("_material.diffuseStrength", material.diffuseStrength);
+		deferredLitShader->setFloat("_material.specularStrength", material.specularStrength);
+		deferredLitShader->setFloat("_material.shininess", material.shininess);
 
 		glBindVertexArray(screenVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+		//Post process pass
+		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//glBindTextureUnit(0, postprocessFramebuffer.getColorAttachment());
+		//glBindTextureUnit(1, postprocessFramebuffer.getDepthAttachment());
+		//postprocessShader->use();
+
+		//postprocessShader->setSubroutine(GL_FRAGMENT_SHADER, {
+		//	std::make_pair("_blurFunction", boxBlurEnable ? "blurEnabled" : "blurDisabled"),
+		//	std::make_pair("_dofFunction", dofEnable ? "dofEnabled" : "dofDisabled"),
+		//	std::make_pair("_chromaticAberrationFunction", chromaticAberrationEnable ? "chromaticAberrationEnabled" : "chromaticAberrationDisabled") });
+
+		//postprocessShader->setInt("_colorBuffer", 0);
+		//postprocessShader->setInt("_depthBuffer", 1);
+		//postprocessShader->setVec2("_focusPoint", focusPoint);
+		//postprocessShader->setInt("_boxBlurSize", boxBlurSize);
+		//postprocessShader->setFloat("_chromaticAberrationSize", chromaticAberrationSize);
+		//postprocessShader->setFloat("_dofMinDistance", dofMinDistance);
+		//postprocessShader->setFloat("_dofMaxDistance", dofMaxDistance);
+		//postprocessShader->setInt("_dofBlurSize", dofBlurSize);
+
+		//glBindVertexArray(screenVAO);
+		//glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		drawUI();
 

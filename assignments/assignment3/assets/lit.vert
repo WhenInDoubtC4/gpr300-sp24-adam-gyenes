@@ -17,8 +17,6 @@ out Surface
 	vec2 UV;
 } vs_out;
 
-out vec4 vs_lightSpacePos;
-
 void main()
 {
 	vec3 t = normalize(vec3(_model * vec4(vTangent, 0.0)));
@@ -29,6 +27,5 @@ void main()
 	vs_out.pos = vec3(_model * vec4(vPos, 1.0));
 	vs_out.tbn = tbn;
 	vs_out.UV = vUV;
-	vs_lightSpacePos = _lightViewProjection * _model * vec4(vPos, 1.0);
 	gl_Position = _view * _model * vec4(vPos, 1.0);
 }

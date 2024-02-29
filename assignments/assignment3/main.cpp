@@ -80,6 +80,16 @@ ew::Camera directionalLight;
 
 Util::Framebuffer gBuffer;
 
+struct PointLight
+{
+	glm::vec3 position;
+	float radius;
+	glm::vec4 color;
+};
+
+constexpr int MAX_POINT_LIGHTS = 1024;
+PointLight pointLights[MAX_POINT_LIGHTS];
+
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
 	cameraFov = 60.f;
@@ -129,6 +139,7 @@ Util::Shader* postprocessShader;
 
 Util::Model* monkeyModel;
 Util::Model* planeModel;
+Util::Model* sphereModel;
 
 void setupScene()
 {
@@ -162,6 +173,7 @@ void setupScene()
 	monkeyModel = new Util::Model("assets/Suzanne.obj");
 	//Using a basic plane mesh from Maya since procGen doesn't calculate TBN
 	planeModel = new Util::Model("assets/plane.fbx");
+	sphereModel = new Util::Model("assets/sphere.fbx");
 
 	//Load textures
 	brickColorTexture = ew::loadTexture("assets/brick2_color.jpg");
@@ -183,9 +195,49 @@ void cleanup()
 
 	delete monkeyModel;
 	delete planeModel;
+	delete sphereModel;
 }
 
 int sceneGridSize = 8;
+constexpr int MAX_LIGHTS_PER_MONKEY = 16;
+int lightsPerMonkey = 4;
+int prevLightsPerMonkey = 0;
+//From https://mokole.com/palette.html and https://www.rapidtables.com/convert/color/hex-to-rgb.html
+constexpr glm::vec4 DEFAULT_MONKEY_LIGHT_COLORS[MAX_LIGHTS_PER_MONKEY] = 
+{
+	glm::vec4(0.1843137254901961, 0.30980392156862746, 0.30980392156862746, 1.f), //darkslategray
+	glm::vec4(0.4196078431372549, 0.5568627450980392, 0.13725490196078433, 1.f), //olivedrab
+	glm::vec4(0.5019607843137255, 0.f, 0.f, 1.f), //maroon
+	glm::vec4(0.09803921568627451, 0.09803921568627451, 0.4392156862745098, 1.f), //midnightblue
+	glm::vec4(1.f, 0.f, 0.f, 1.f), //red
+	glm::vec4(0.f, 0.807843137254902, 0.8196078431372549, 1.f), //darkturquoise
+	glm::vec4(1.f, 0.6470588235294118, 0.f, 1.f), //orange
+	glm::vec4(1.f, 1.f, 0.f, 1.f), //yellow
+	glm::vec4(0.f, 0.f, 0.803921568627451, 1.f), //mediumblue
+	glm::vec4(0.f, 1.f, 0.f, 1.f), //lime
+	glm::vec4(0.f, 0.9803921568627451, 0.6039215686274509, 1.f), //mediumspringgreen
+	glm::vec4(1.f, 0.f, 1.f, 1.f), //fuchsia
+	glm::vec4(0.11764705882352941, 0.5647058823529412, 1.f, 1.f), //dodgerblue
+	glm::vec4(0.8666666666666667, 0.6274509803921569, 0.8666666666666667, 1.f), //plum
+	glm::vec4(1.f, 0.0784313725490196, 0.5764705882352941, 1.f), //deeppink
+	glm::vec4(0.9607843137254902, 0.8705882352941177, 0.7019607843137254, 1.f), //wheat
+};
+std::vector<glm::vec4> activeMonkeyLightColors(MAX_LIGHTS_PER_MONKEY);
+
+void upateMonkeyLightColors()
+{
+	activeMonkeyLightColors.resize(lightsPerMonkey);
+
+	if (lightsPerMonkey > prevLightsPerMonkey)
+	{
+		for (int i = prevLightsPerMonkey; i < lightsPerMonkey; i++)
+		{
+			activeMonkeyLightColors[i] = DEFAULT_MONKEY_LIGHT_COLORS[i];
+		}
+	}
+
+	prevLightsPerMonkey = lightsPerMonkey;
+}
 
 void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 {
@@ -214,11 +266,38 @@ void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 			planeT.position = glm::vec3(xCenter * 10.f, -2.f, zCenter * 10.f);
 			monkeyT.position = glm::vec3(xCenter * 10.f, 0.f, zCenter * 10.f);
 			
+			gBufferShader->setSubroutine(GL_FRAGMENT_SHADER, {
+				std::make_pair("_albedoFunction", "albedoFromTexture"),
+				std::make_pair("_normalFunction", "normalFromTexture")
+			});
+
 			shader->setMat4("_model", planeT.modelMatrix());
 			planeModel->draw();
 
 			shader->setMat4("_model", monkeyT.modelMatrix());
 			monkeyModel->draw();
+
+			//Lights
+			gBufferShader->setSubroutine(GL_FRAGMENT_SHADER, {
+				std::make_pair("_albedoFunction", "albedoFromColor"),
+				std::make_pair("_normalFunction", "normalFromMesh")
+			});
+
+			float angleStep = glm::radians(360.f / float(lightsPerMonkey));
+			float lightRadius = 3.f;
+			for (int l = 0; l < lightsPerMonkey; l++)
+			{
+				ew::Transform lightT;
+				float localX = glm::cos(angleStep * l) * lightRadius;
+				float localZ = glm::sin(angleStep * l) * lightRadius;
+
+				lightT.position = glm::vec3(localX + xCenter * 10.f, 0.f, localZ + zCenter * 10.f);
+				lightT.scale = glm::vec3(0.3f);
+
+				shader->setVec4("_solidColor", activeMonkeyLightColors[l]);
+				shader->setMat4("_model", lightT.modelMatrix());
+				sphereModel->draw();
+			}
 		}
 	}
 }
@@ -229,6 +308,7 @@ int main() {
 	createPostprocessFramebuffer(screenWidth, screenHeight);
 	
 	setupScene();
+	upateMonkeyLightColors();
 
 	//Create dummy VAO for screen
 	GLuint screenVAO;
@@ -259,10 +339,11 @@ int main() {
 		glViewport(0, 0, gBuffer.getSize().x, gBuffer.getSize().y);
 		glClearColor(0.f, 0.f, 0.f, 1.f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
 		drawScene(gBufferShader, camera.projectionMatrix() * camera.viewMatrix());
 		gBufferShader->setInt("_mainTex", 1);
 		gBufferShader->setInt("_normalTex", 2);
-
+		
 		//Shadow map pass
 		glCullFace(GL_FRONT);
 		glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer.getFBO());
@@ -346,8 +427,18 @@ void drawUI() {
 	if (ImGui::CollapsingHeader("Scene"))
 	{
 		ImGui::SliderInt("Grid size", &sceneGridSize, 1, 16);
+		ImGui::SliderInt("Lights per monkey", &lightsPerMonkey, 1, MAX_LIGHTS_PER_MONKEY);
+		if (lightsPerMonkey != prevLightsPerMonkey) upateMonkeyLightColors();
+		ImGui::Indent();
+		for (int i = 0; i < lightsPerMonkey; i++)
+		{
+			ImGui::PushID(i);
+			ImGui::ColorEdit4("Color", &activeMonkeyLightColors.data()[i].r);
+			ImGui::PopID();
+		}
+		ImGui::Unindent();
 	}
-	if (ImGui::CollapsingHeader("Light"))
+	if (ImGui::CollapsingHeader("Global light"))
 	{
 		ImGui::ColorEdit3("Ambient color", &ambientColor[0], ImGuiColorEditFlags_Float);
 		ImGui::ColorEdit3("Light color", &lightColor[0], ImGuiColorEditFlags_Float);

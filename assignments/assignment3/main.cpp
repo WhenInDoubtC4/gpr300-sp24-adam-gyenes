@@ -128,9 +128,7 @@ Util::Shader* deferredLitShader;
 Util::Shader* postprocessShader;
 
 Util::Model* monkeyModel;
-ew::Transform monkeyTransform;
 Util::Model* planeModel;
-ew::Transform planeTransform;
 
 void setupScene()
 {
@@ -164,8 +162,6 @@ void setupScene()
 	monkeyModel = new Util::Model("assets/Suzanne.obj");
 	//Using a basic plane mesh from Maya since procGen doesn't calculate TBN
 	planeModel = new Util::Model("assets/plane.fbx");
-	planeTransform.position.z = -2.5;
-	planeTransform.position.y = -2.f;
 
 	//Load textures
 	brickColorTexture = ew::loadTexture("assets/brick2_color.jpg");
@@ -189,14 +185,42 @@ void cleanup()
 	delete planeModel;
 }
 
+int sceneGridSize = 8;
+
 void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 {
+	static float prevTime = -1.f;
+
 	shader->use();
 	shader->setMat4("_view", viewMatrix);
-	shader->setMat4("_model", monkeyTransform.modelMatrix());
-	monkeyModel->draw();
-	shader->setMat4("_model", planeTransform.modelMatrix());
-	planeModel->draw();
+
+	ew::Transform planeT;
+	static ew::Transform monkeyT;
+
+	//Monkey go spinny
+	if (prevTime != prevFrameTime)
+	{
+		prevTime = prevFrameTime;
+		monkeyT.rotation = glm::rotate(monkeyT.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
+	}
+
+	for (int x = 0; x < sceneGridSize; x++)
+	{
+		for (int z = 0; z < sceneGridSize; z++)
+		{
+			float xCenter = float(x) - float(sceneGridSize) / 2.f;
+			float zCenter = float(z) - float(sceneGridSize) / 2.f;
+			
+			planeT.position = glm::vec3(xCenter * 10.f, -2.f, zCenter * 10.f);
+			monkeyT.position = glm::vec3(xCenter * 10.f, 0.f, zCenter * 10.f);
+			
+			shader->setMat4("_model", planeT.modelMatrix());
+			planeModel->draw();
+
+			shader->setMat4("_model", monkeyT.modelMatrix());
+			monkeyModel->draw();
+		}
+	}
 }
 
 int main() {
@@ -224,7 +248,7 @@ int main() {
 		cameraController.move(window, &camera, deltaTime);
 		camera.fov = cameraFov;
 
-		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
+		//monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
 		glBindTextureUnit(0, gBuffer.getDepthAttachment());
 		glBindTextureUnit(1, currentColorTexture);
 		glBindTextureUnit(2, currentNormalTexture);
@@ -319,6 +343,10 @@ void drawUI() {
 	ImGui::NewFrame();
 
 	ImGui::Begin("Settings");
+	if (ImGui::CollapsingHeader("Scene"))
+	{
+		ImGui::SliderInt("Grid size", &sceneGridSize, 1, 16);
+	}
 	if (ImGui::CollapsingHeader("Light"))
 	{
 		ImGui::ColorEdit3("Ambient color", &ambientColor[0], ImGuiColorEditFlags_Float);

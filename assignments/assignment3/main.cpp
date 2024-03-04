@@ -20,75 +20,11 @@
 #include <util/framebuffer.h>
 #include <util/shader.h>
 
+#include "mainGlobals.h"
+
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
-
-//Global state
-constexpr glm::vec3 CAMERA_INIT_POSITION = glm::vec3(0.f, 0.f, 5.f);
-constexpr glm::vec3 CAMERA_INIT_TARGET = glm::vec3(0.f);
-
-int screenWidth = 1080;
-int screenHeight = 720;
-float prevFrameTime;
-float deltaTime;
-
-ew::Camera camera;
-ew::CameraController cameraController;
-float cameraFov = 60.f;
-
-struct Material
-{
-	float ambientStrength = 0.6f;
-	float diffuseStrength = 1.f;
-	float specularStrength = 1.f;
-	float shininess = 128;
-};
-float shadowBrightness = 0.3;
-float shadowMinBias = 0.005f;
-float shadowMaxBias = 0.015f;
-
-Material material;
-glm::vec3 lightColor = glm::vec3(1.0);
-glm::vec3 ambientColor = glm::vec3(0.3, 0.4, 0.45);
-
-GLuint currentColorTexture;
-GLuint currentNormalTexture;
-int currentTexture = 0;
-int prevTexture = 0;
-GLuint brickColorTexture;
-GLuint brickNormalTexture;
-GLuint rockColorTexture;
-GLuint rockNormalTexture;
-
-Util::Framebuffer postprocessFramebuffer;
-bool boxBlurEnable = false;
-int boxBlurSize = 2;
-
-bool chromaticAberrationEnable = false;
-float chromaticAberrationSize = 0.09;
-glm::vec2 focusPoint(0.5f, 0.5f);
-
-bool dofEnable = false;
-int dofBlurSize = 8;
-float dofMinDistance = 1.0;
-float dofMaxDistance = 3.0;
-
-Util::Framebuffer shadowFramebuffer;
-//Light that's a camera in disguise
-ew::Camera directionalLight;
-
-Util::Framebuffer gBuffer;
-
-struct PointLight
-{
-	glm::vec3 position;
-	float radius;
-	glm::vec4 color;
-};
-
-constexpr int MAX_POINT_LIGHTS = 1024;
-PointLight pointLights[MAX_POINT_LIGHTS];
 
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
@@ -130,16 +66,6 @@ void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
 	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
-
-//Forced to use pointers here since it has no default constructor
-Util::Shader* gBufferShader;
-Util::Shader* depthOnlyShader;
-Util::Shader* deferredLitShader;
-Util::Shader* postprocessShader;
-
-Util::Model* monkeyModel;
-Util::Model* planeModel;
-Util::Model* sphereModel;
 
 void setupScene()
 {
@@ -198,10 +124,6 @@ void cleanup()
 	delete sphereModel;
 }
 
-int sceneGridSize = 8;
-constexpr int MAX_LIGHTS_PER_MONKEY = 16;
-int lightsPerMonkey = 4;
-int prevLightsPerMonkey = 0;
 //From https://mokole.com/palette.html and https://www.rapidtables.com/convert/color/hex-to-rgb.html
 constexpr glm::vec4 DEFAULT_MONKEY_LIGHT_COLORS[MAX_LIGHTS_PER_MONKEY] = 
 {

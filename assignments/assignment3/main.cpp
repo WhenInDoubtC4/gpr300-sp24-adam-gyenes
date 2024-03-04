@@ -172,6 +172,7 @@ void upateMonkeyLightColors()
 void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 {
 	static float prevTime = -1.f;
+	int currentLightIndex = 0;
 
 	shader->use();
 	shader->setMat4("_view", viewMatrix);
@@ -225,6 +226,15 @@ void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 
 				lightT.position = glm::vec3(localX + xCenter * 10.f, 0.f, localZ + zCenter * 10.f);
 				lightT.scale = glm::vec3(0.3f);
+
+				if (shader == gBufferShader)
+				{
+					PointLight currentLight;
+					currentLight.color = activeMonkeyLightColors[l];
+					currentLight.position = lightT.position;
+					//printf("[%i] Position: X=%f Y=%f Z=%f, Color: R=%f, G=%f, B=%f\n", currentLightIndex, pointLights[currentLightIndex].position.x, pointLights[currentLightIndex].position.y, pointLights[currentLightIndex].position.z, pointLights[currentLightIndex].color.r, pointLights[currentLightIndex].color.g, pointLights[currentLightIndex].color.b);
+					pointLights[currentLightIndex++] = currentLight;
+				}
 
 				shader->setVec4("_solidColor", activeMonkeyLightColors[l]);
 				shader->setMat4("_model", lightT.modelMatrix());
@@ -300,6 +310,13 @@ int main() {
 		glBindTextureUnit(4, shadowFramebuffer.getDepthAttachment());
 
 		deferredLitShader->use();
+		for (int i = 0; i < MAX_POINT_LIGHTS; i++)
+		{
+			std::string prefix = "_pointLights[" + std::to_string(i) + "].";
+			deferredLitShader->setVec3(prefix + "position", pointLights[i].position);
+			deferredLitShader->setFloat(prefix + "radius", pointLights[i].radius);
+			deferredLitShader->setVec4(prefix + "color", pointLights[i].color);
+		}
 		deferredLitShader->setMat4("_lightViewProjection", lightMatrix);
 		deferredLitShader->setVec3("_litShadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::LIT));
 		deferredLitShader->setVec3("_unlitShadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::UNLIT));
@@ -361,7 +378,7 @@ void drawUI() {
 	ImGui::Begin("Settings");
 	if (ImGui::CollapsingHeader("Scene"))
 	{
-		ImGui::SliderInt("Grid size", &sceneGridSize, 1, 16);
+		ImGui::SliderInt("Grid size", &sceneGridSize, 1, MAX_GRID_SIZE);
 		ImGui::SliderInt("Lights per monkey", &lightsPerMonkey, 1, MAX_LIGHTS_PER_MONKEY);
 		if (lightsPerMonkey != prevLightsPerMonkey) upateMonkeyLightColors();
 		ImGui::Indent();

@@ -12,8 +12,8 @@ struct Material
 struct PointLight
 {
 	glm::vec3 position;
-	float radius;
-	glm::vec4 color;
+	float radius = 5.f;
+	glm::vec4 color = glm::vec4(0.f);
 };
 
 enum ShadingModel
@@ -73,9 +73,6 @@ ew::Camera directionalLight;
 
 Util::Framebuffer gBuffer;
 
-constexpr int MAX_POINT_LIGHTS = 1024;
-PointLight pointLights[MAX_POINT_LIGHTS];
-
 //Shaders and models
 //Forced to use pointers here since it has no default constructor
 Util::Shader* gBufferShader;
@@ -87,7 +84,11 @@ Util::Model* monkeyModel;
 Util::Model* planeModel;
 Util::Model* sphereModel;
 
-int sceneGridSize = 8;
+int sceneGridSize = 2;
+constexpr int MAX_GRID_SIZE = 16;
 constexpr int MAX_LIGHTS_PER_MONKEY = 16;
 int lightsPerMonkey = 4;
 int prevLightsPerMonkey = 0;
+
+constexpr int MAX_POINT_LIGHTS = MAX_GRID_SIZE * MAX_LIGHTS_PER_MONKEY;
+PointLight pointLights[MAX_POINT_LIGHTS];

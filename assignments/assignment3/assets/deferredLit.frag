@@ -1,6 +1,17 @@
 #version 450
 
-const float SHADING_MODEL_COLOR_MATCH_TRESHOLD = 0.1;
+#define SHADING_MODEL_COLOR_MATCH_TRESHOLD 0.1
+//MUST match values in mainGlobals.h
+#define MAX_GRID_SIZE 16
+#define MAX_LIGHTS_PER_MONKEY 16
+#define MAX_POINT_LIGHTS MAX_GRID_SIZE * MAX_LIGHTS_PER_MONKEY
+
+struct PointLight
+{
+	vec3 position;
+	float radius;
+	vec4 color;
+};
 
 struct Material
 {
@@ -22,6 +33,8 @@ uniform mat4 _lightViewProjection;
 
 uniform vec3 _litShadingModelColor;
 uniform vec3 _unlitShadingModelColor;
+
+uniform PointLight _pointLights[MAX_POINT_LIGHTS];
 
 uniform vec3 _cameraPosition;
 uniform vec3 _lightPosition;
@@ -58,6 +71,37 @@ float calcShadow(sampler2D shadowMap, vec3 normal, vec3 toLight, vec4 lightSpace
 	return totalShadow / 9.0;
 }
 
+float attenuateLinear(float dist, float radius)
+{
+	return clamp((radius - dist) / radius, 0.0, 1.0);
+}
+
+float attenuateExponential(float dist, float radius)
+{
+	float i = clamp(1.0 - pow(dist / radius, 4.0), 0.0, 1.0);
+	return i * i;
+}
+
+vec3 calcPointLight(PointLight light, vec3 worldPosition, vec3 normal, vec3 toCamera)
+{
+	vec3 diff = light.position - worldPosition;
+	vec3 toLight = normalize(diff);
+	
+	float diffuseFactor = max(dot(normal, toLight), 0.0);
+	vec3 h = normalize(toLight + toCamera);
+	float specularFactor = pow(max(dot(normal, h), 0.0), _material.shininess);
+
+	vec3 lightColor = light.color.rgb * diffuseFactor * _material.diffuseStrength;
+	lightColor += light.color.rgb * specularFactor * _material.specularStrength;
+
+	//Attenuation
+	float dist = length(diff);
+	//TODO: Might want to add subroutines
+	lightColor *= attenuateLinear(dist, light.radius);
+
+	return lightColor;
+}
+
 void main()
 {
 	vec3 albedo = texture(_gAlbedo, UV).rgb;
@@ -72,9 +116,8 @@ void main()
 	vec4 lightSpacePos = _lightViewProjection * texture(_gPosition, UV);
 
 	vec3 normal = texture(_gNormal, UV).rgb;
-	//normal = normalize(normal * 2.0 - 1.0);
 	vec3 position = texture(_gPosition, UV).xyz;
-	vec3 _lightDirection = normalize(position - _lightPosition);
+	vec3 _lightDirection = normalize(/*position*/ - _lightPosition);
 	vec3 toLight = normal * -_lightDirection;
 	vec3 toCamera = normalize(_cameraPosition - position);
 	float diffuseFactor = max(dot(normal, toLight), 0.0);
@@ -88,6 +131,13 @@ void main()
 	vec3 light = _ambientColor * _material.ambientStrength;
 	light += _lightColor * diffuseFactor * _material.diffuseStrength;
 	light += _lightColor * specularFactor * _material.specularStrength;
+
+	//Point lights
+	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		light += calcPointLight(_pointLights[i], position, normal, toCamera);
+	}
+
 	light *= 1.0 - shadow;
 
 	FragColor = vec4(albedo * light, 1.0);

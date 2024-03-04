@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <math.h>
+#include <map>
 
 #include <ew/external/glad.h>
 
@@ -47,6 +48,7 @@ void createPostprocessFramebuffer(int width, int height)
 	gBuffer.addColorAttachment(GL_RGB32F); //World position
 	gBuffer.addColorAttachment(GL_RGB16F); //World normal
 	gBuffer.addColorAttachment(GL_RGB16F); //Albedo
+	gBuffer.addColorAttachment(GL_RGB16F); //Shading model
 	gBuffer.addDepthAttachment(); //Depth buffer
 	if (!gBuffer.isComplete()) printf("ERROR: G-buffer is not complete!\n");
 
@@ -124,6 +126,12 @@ void cleanup()
 	delete sphereModel;
 }
 
+const auto SHADING_MODEL_TO_COLOR = std::map<ShadingModel, glm::vec3>
+{
+	{ ShadingModel::LIT, glm::vec3(1.f, 0.f, 0.f) },
+	{ ShadingModel::UNLIT, glm::vec3(0.f, 1.f, 0.f) },
+};
+
 //From https://mokole.com/palette.html and https://www.rapidtables.com/convert/color/hex-to-rgb.html
 constexpr glm::vec4 DEFAULT_MONKEY_LIGHT_COLORS[MAX_LIGHTS_PER_MONKEY] = 
 {
@@ -192,6 +200,7 @@ void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 				std::make_pair("_albedoFunction", "albedoFromTexture"),
 				std::make_pair("_normalFunction", "normalFromTexture")
 			});
+			gBufferShader->setVec3("_shadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::LIT));
 
 			shader->setMat4("_model", planeT.modelMatrix());
 			planeModel->draw();
@@ -204,6 +213,7 @@ void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 				std::make_pair("_albedoFunction", "albedoFromColor"),
 				std::make_pair("_normalFunction", "normalFromMesh")
 			});
+			gBufferShader->setVec3("_shadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::UNLIT));
 
 			float angleStep = glm::radians(360.f / float(lightsPerMonkey));
 			float lightRadius = 3.f;
@@ -286,10 +296,13 @@ int main() {
 		glBindTextureUnit(0, gBuffer.getColorAttachment(0));
 		glBindTextureUnit(1, gBuffer.getColorAttachment(1));
 		glBindTextureUnit(2, gBuffer.getColorAttachment(2));
-		glBindTextureUnit(3, shadowFramebuffer.getDepthAttachment());
+		glBindTextureUnit(3, gBuffer.getColorAttachment(3));
+		glBindTextureUnit(4, shadowFramebuffer.getDepthAttachment());
 
 		deferredLitShader->use();
 		deferredLitShader->setMat4("_lightViewProjection", lightMatrix);
+		deferredLitShader->setVec3("_litShadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::LIT));
+		deferredLitShader->setVec3("_unlitShadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::UNLIT));
 		deferredLitShader->setVec3("_cameraPosition", camera.position);
 		deferredLitShader->setVec3("_lightPosition", directionalLight.position);
 		deferredLitShader->setFloat("_shadowBrightness", shadowBrightness);

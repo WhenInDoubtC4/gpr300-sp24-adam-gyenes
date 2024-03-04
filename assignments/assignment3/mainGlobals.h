@@ -1,6 +1,6 @@
 #pragma once
 
-//Structs
+//Structs and enums
 struct Material
 {
 	float ambientStrength = 0.6f;
@@ -14,6 +14,12 @@ struct PointLight
 	glm::vec3 position;
 	float radius;
 	glm::vec4 color;
+};
+
+enum ShadingModel
+{
+	LIT,
+	UNLIT
 };
 
 //Global state

@@ -3,6 +3,7 @@
 layout(location = 0) out vec3 gPosition;
 layout(location = 1) out vec3 gNormal;
 layout(location = 2) out vec3 gAlbedo;
+layout(location = 3) out vec3 gShadingModel;
 
 in Surface
 {
@@ -14,6 +15,7 @@ in Surface
 uniform vec4 _solidColor;
 uniform sampler2D _mainTex;
 uniform sampler2D _normalTex;
+uniform vec3 _shadingModelColor;
 
 subroutine vec3 AlbedoFunction();
 subroutine vec3 NormalFunction();
@@ -47,4 +49,5 @@ void main()
 	gAlbedo = _albedoFunction();
 	//gNormal = transpose(fs_in.tbn)[2]; //WS normal form TBN
 	gNormal = _normalFunction(); //WS normal
+	gShadingModel = _shadingModelColor;
 }

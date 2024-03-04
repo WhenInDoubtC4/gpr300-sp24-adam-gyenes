@@ -1,5 +1,7 @@
 #version 450
 
+const float SHADING_MODEL_COLOR_MATCH_TRESHOLD = 0.1;
+
 struct Material
 {
 	float ambientStrength;
@@ -13,9 +15,13 @@ in vec2 UV;
 uniform layout(binding = 0) sampler2D _gPosition;
 uniform layout(binding = 1) sampler2D _gNormal;
 uniform layout(binding = 2) sampler2D _gAlbedo;
-uniform layout(binding = 3) sampler2D _gShadowMap;
+uniform layout(binding = 3) sampler2D _gShadingModel;
+uniform layout(binding = 4) sampler2D _gShadowMap;
 
 uniform mat4 _lightViewProjection;
+
+uniform vec3 _litShadingModelColor;
+uniform vec3 _unlitShadingModelColor;
 
 uniform vec3 _cameraPosition;
 uniform vec3 _lightPosition;
@@ -54,6 +60,15 @@ float calcShadow(sampler2D shadowMap, vec3 normal, vec3 toLight, vec4 lightSpace
 
 void main()
 {
+	vec3 albedo = texture(_gAlbedo, UV).rgb;
+
+	//Unlit shader
+	if (abs(length(_unlitShadingModelColor - texture(_gShadingModel, UV).rgb)) < SHADING_MODEL_COLOR_MATCH_TRESHOLD)
+	{
+		FragColor = vec4(albedo, 1.0);
+		return;
+	}
+
 	vec4 lightSpacePos = _lightViewProjection * texture(_gPosition, UV);
 
 	vec3 normal = texture(_gNormal, UV).rgb;
@@ -74,8 +89,6 @@ void main()
 	light += _lightColor * diffuseFactor * _material.diffuseStrength;
 	light += _lightColor * specularFactor * _material.specularStrength;
 	light *= 1.0 - shadow;
-
-	vec3 albedo = texture(_gAlbedo, UV).rgb;
 
 	FragColor = vec4(albedo * light, 1.0);
 }

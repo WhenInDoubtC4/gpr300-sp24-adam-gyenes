@@ -90,6 +90,13 @@ void setupScene()
 	float boderColor[4] = { 1.f, 1.f, 1.f, 1.f };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, boderColor);
 
+	//Point light UBO
+	glGenBuffers(1, &lightsUBO);
+	glBindBuffer(GL_UNIFORM_BUFFER, lightsUBO);
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(pointLights), pointLights, GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_UNIFORM_BUFFER, lightsUBOBinding, lightsUBO);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
 	//Shader setup
 	gBufferShader = new Util::Shader("assets/lit.vert", "assets/geometryPass.frag");
 	depthOnlyShader = new Util::Shader("assets/depthOnly.vert", "assets/depthOnly.frag");
@@ -156,6 +163,12 @@ std::vector<glm::vec4> activeMonkeyLightColors(MAX_LIGHTS_PER_MONKEY);
 
 void upateMonkeyLightColors()
 {
+	//Reset lights
+	for (int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		pointLights[i].color = glm::vec4(0.f);
+	}
+
 	activeMonkeyLightColors.resize(lightsPerMonkey);
 
 	if (lightsPerMonkey > prevLightsPerMonkey)
@@ -197,10 +210,13 @@ void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 			planeT.position = glm::vec3(xCenter * 10.f, -2.f, zCenter * 10.f);
 			monkeyT.position = glm::vec3(xCenter * 10.f, 0.f, zCenter * 10.f);
 			
-			gBufferShader->setSubroutine(GL_FRAGMENT_SHADER, {
-				std::make_pair("_albedoFunction", "albedoFromTexture"),
-				std::make_pair("_normalFunction", "normalFromTexture")
-			});
+			if (shader == gBufferShader)
+			{
+				gBufferShader->setSubroutine(GL_FRAGMENT_SHADER, {
+					std::make_pair("_albedoFunction", "albedoFromTexture"),
+					std::make_pair("_normalFunction", "normalFromTexture")
+				});
+			}
 			gBufferShader->setVec3("_shadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::LIT));
 
 			shader->setMat4("_model", planeT.modelMatrix());
@@ -210,11 +226,14 @@ void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 			monkeyModel->draw();
 
 			//Lights
-			gBufferShader->setSubroutine(GL_FRAGMENT_SHADER, {
-				std::make_pair("_albedoFunction", "albedoFromColor"),
-				std::make_pair("_normalFunction", "normalFromMesh")
-			});
-			gBufferShader->setVec3("_shadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::UNLIT));
+			if (shader == gBufferShader)
+			{
+				gBufferShader->setSubroutine(GL_FRAGMENT_SHADER, {
+					std::make_pair("_albedoFunction", "albedoFromColor"),
+					std::make_pair("_normalFunction", "normalFromMesh")
+				});
+				gBufferShader->setVec3("_shadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::UNLIT));
+			}
 
 			float angleStep = glm::radians(360.f / float(lightsPerMonkey));
 			float lightRadius = 3.f;
@@ -309,14 +328,9 @@ int main() {
 		glBindTextureUnit(3, gBuffer.getColorAttachment(3));
 		glBindTextureUnit(4, shadowFramebuffer.getDepthAttachment());
 
+		glNamedBufferSubData(lightsUBO, 0, sizeof(pointLights), pointLights);
+		
 		deferredLitShader->use();
-		for (int i = 0; i < MAX_POINT_LIGHTS; i++)
-		{
-			std::string prefix = "_pointLights[" + std::to_string(i) + "].";
-			deferredLitShader->setVec3(prefix + "position", pointLights[i].position);
-			deferredLitShader->setFloat(prefix + "radius", pointLights[i].radius);
-			deferredLitShader->setVec4(prefix + "color", pointLights[i].color);
-		}
 		deferredLitShader->setMat4("_lightViewProjection", lightMatrix);
 		deferredLitShader->setVec3("_litShadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::LIT));
 		deferredLitShader->setVec3("_unlitShadingModelColor", SHADING_MODEL_TO_COLOR.at(ShadingModel::UNLIT));

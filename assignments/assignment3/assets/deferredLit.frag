@@ -2,9 +2,9 @@
 
 #define SHADING_MODEL_COLOR_MATCH_TRESHOLD 0.1
 //MUST match values in mainGlobals.h
-#define MAX_GRID_SIZE 16
+#define MAX_GRID_SIZE 8
 #define MAX_LIGHTS_PER_MONKEY 16
-#define MAX_POINT_LIGHTS MAX_GRID_SIZE * MAX_LIGHTS_PER_MONKEY
+#define MAX_POINT_LIGHTS MAX_GRID_SIZE * MAX_GRID_SIZE * MAX_LIGHTS_PER_MONKEY
 
 struct PointLight
 {
@@ -34,7 +34,10 @@ uniform mat4 _lightViewProjection;
 uniform vec3 _litShadingModelColor;
 uniform vec3 _unlitShadingModelColor;
 
-uniform PointLight _pointLights[MAX_POINT_LIGHTS];
+layout(std140, binding = 5) uniform AdditionalLights
+{
+	PointLight _pointLights[MAX_POINT_LIGHTS];
+};
 
 uniform vec3 _cameraPosition;
 uniform vec3 _lightPosition;
@@ -107,6 +110,7 @@ void main()
 	vec3 albedo = texture(_gAlbedo, UV).rgb;
 
 	//Unlit shader
+	//TODO: Make it so unlit is not shaded
 	if (abs(length(_unlitShadingModelColor - texture(_gShadingModel, UV).rgb)) < SHADING_MODEL_COLOR_MATCH_TRESHOLD)
 	{
 		FragColor = vec4(albedo, 1.0);

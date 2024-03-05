@@ -85,10 +85,12 @@ Util::Model* planeModel;
 Util::Model* sphereModel;
 
 int sceneGridSize = 2;
-constexpr int MAX_GRID_SIZE = 16;
+constexpr int MAX_GRID_SIZE = 8;
 constexpr int MAX_LIGHTS_PER_MONKEY = 16;
 int lightsPerMonkey = 4;
 int prevLightsPerMonkey = 0;
 
-constexpr int MAX_POINT_LIGHTS = MAX_GRID_SIZE * MAX_LIGHTS_PER_MONKEY;
+GLuint lightsUBO;
+GLuint lightsUBOBinding = 5;
+constexpr int MAX_POINT_LIGHTS = MAX_GRID_SIZE * MAX_GRID_SIZE * MAX_LIGHTS_PER_MONKEY;
 PointLight pointLights[MAX_POINT_LIGHTS];

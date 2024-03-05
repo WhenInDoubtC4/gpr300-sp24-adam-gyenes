@@ -101,6 +101,7 @@ void setupScene()
 	gBufferShader = new Util::Shader("assets/lit.vert", "assets/geometryPass.frag");
 	depthOnlyShader = new Util::Shader("assets/depthOnly.vert", "assets/depthOnly.frag");
 	deferredLitShader = new Util::Shader("assets/postprocess.vert", "assets/deferredLit.frag");
+	lightVolumeShader = new Util::Shader("assets/lit.vert", "assets/lightVolume.frag");
 	postprocessShader = new Util::Shader("assets/postprocess.vert", "assets/postprocess.frag");
 
 	//Model setup
@@ -126,6 +127,7 @@ void cleanup()
 	delete gBufferShader;
 	delete depthOnlyShader;
 	delete deferredLitShader;
+	delete lightVolumeShader;
 	delete postprocessShader;
 
 	delete monkeyModel;
@@ -348,6 +350,34 @@ int main() {
 
 		glBindVertexArray(screenVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+		//Light volumes
+		glClear(GL_DEPTH_BUFFER_BIT);
+		lightVolumeShader->use();
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_ONE, GL_ONE);
+		glCullFace(GL_FRONT);
+		glDepthMask(GL_FALSE);
+		lightVolumeShader->setMat4("_view", camera.projectionMatrix() * camera.viewMatrix());
+		lightVolumeShader->setVec3("_cameraPosition", camera.position);
+		lightVolumeShader->setFloat("_material.ambientStrength", material.ambientStrength);
+		lightVolumeShader->setFloat("_material.diffuseStrength", material.diffuseStrength);
+		lightVolumeShader->setFloat("_material.specularStrength", material.specularStrength);
+		lightVolumeShader->setFloat("_material.shininess", material.shininess);
+
+		for (int i = 0; i < sceneGridSize * sceneGridSize * activeMonkeyLightColors.size(); i++)
+		{
+			lightVolumeShader->setInt("_lightIndex", i);
+			ew::Transform transform;
+			transform.position = pointLights[i].position;
+			transform.scale = glm::vec3(pointLights[i].radius); //TODO: Ui control
+			lightVolumeShader->setMat4("_model", transform.modelMatrix());
+			sphereModel->draw();
+		}
+
+		glDisable(GL_BLEND);
+		glCullFace(GL_FRONT);
+		glDepthMask(GL_TRUE);
 
 		//Post process pass
 		//glBindFramebuffer(GL_FRAMEBUFFER, 0);

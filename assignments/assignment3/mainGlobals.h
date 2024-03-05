@@ -78,6 +78,7 @@ Util::Framebuffer gBuffer;
 Util::Shader* gBufferShader;
 Util::Shader* depthOnlyShader;
 Util::Shader* deferredLitShader;
+Util::Shader* lightVolumeShader;
 Util::Shader* postprocessShader;
 
 Util::Model* monkeyModel;

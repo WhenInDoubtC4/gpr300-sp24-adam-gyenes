@@ -78,7 +78,10 @@ void setupScene()
 	camera.fov = cameraFov;
 
 	directionalLight.orthographic = true;
-	directionalLight.position = glm::vec3(-1.f, 4.f, 7.f);
+	directionalLight.orthoHeight = 40.f;
+	directionalLight.farPlane = 300.f;
+	directionalLight.aspectRatio = 1.f;
+	directionalLight.position = glm::vec3(-10.f, 40.f, 70.f);
 
 	//Shadow buffer
 	shadowFramebuffer = Util::Framebuffer(glm::vec2(2048));
@@ -105,7 +108,6 @@ void setupScene()
 	postprocessShader = new Util::Shader("assets/postprocess.vert", "assets/postprocess.frag");
 
 	//Model setup
-	//TODO: Do some crazy duplication here
 	monkeyModel = new Util::Model("assets/Suzanne.obj");
 	//Using a basic plane mesh from Maya since procGen doesn't calculate TBN
 	planeModel = new Util::Model("assets/plane.fbx");
@@ -184,6 +186,7 @@ void upateMonkeyLightColors()
 	prevLightsPerMonkey = lightsPerMonkey;
 }
 
+template <ShaderPass S>
 void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 {
 	static float prevTime = -1.f;
@@ -212,7 +215,7 @@ void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 			planeT.position = glm::vec3(xCenter * 10.f, -2.f, zCenter * 10.f);
 			monkeyT.position = glm::vec3(xCenter * 10.f, 0.f, zCenter * 10.f);
 			
-			if (shader == gBufferShader)
+			if constexpr (S == ShaderPass::GEOMETRY_PASS)
 			{
 				gBufferShader->setSubroutine(GL_FRAGMENT_SHADER, {
 					std::make_pair("_albedoFunction", "albedoFromTexture"),
@@ -227,8 +230,10 @@ void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 			shader->setMat4("_model", monkeyT.modelMatrix());
 			monkeyModel->draw();
 
+			//Do not cast shadows on lights
+			if constexpr (S == ShaderPass::DEPTH_ONLY) continue;
 			//Lights
-			if (shader == gBufferShader)
+			else if constexpr (S == ShaderPass::GEOMETRY_PASS)
 			{
 				gBufferShader->setSubroutine(GL_FRAGMENT_SHADER, {
 					std::make_pair("_albedoFunction", "albedoFromColor"),
@@ -252,8 +257,8 @@ void drawScene(Util::Shader* shader, const glm::mat4& viewMatrix)
 				{
 					PointLight currentLight;
 					currentLight.color = activeMonkeyLightColors[l];
+					currentLight.radius = lightVolumeRadius;
 					currentLight.position = lightT.position;
-					//printf("[%i] Position: X=%f Y=%f Z=%f, Color: R=%f, G=%f, B=%f\n", currentLightIndex, pointLights[currentLightIndex].position.x, pointLights[currentLightIndex].position.y, pointLights[currentLightIndex].position.z, pointLights[currentLightIndex].color.r, pointLights[currentLightIndex].color.g, pointLights[currentLightIndex].color.b);
 					pointLights[currentLightIndex++] = currentLight;
 				}
 
@@ -291,7 +296,6 @@ int main() {
 		cameraController.move(window, &camera, deltaTime);
 		camera.fov = cameraFov;
 
-		//monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
 		glBindTextureUnit(0, gBuffer.getDepthAttachment());
 		glBindTextureUnit(1, currentColorTexture);
 		glBindTextureUnit(2, currentNormalTexture);
@@ -303,7 +307,7 @@ int main() {
 		glClearColor(0.f, 0.f, 0.f, 1.f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
-		drawScene(gBufferShader, camera.projectionMatrix() * camera.viewMatrix());
+		drawScene<ShaderPass::GEOMETRY_PASS>(gBufferShader, camera.projectionMatrix() * camera.viewMatrix());
 		gBufferShader->setInt("_mainTex", 1);
 		gBufferShader->setInt("_normalTex", 2);
 		
@@ -315,13 +319,15 @@ int main() {
 
 		glm::mat4 lightView = glm::lookAt(directionalLight.position, glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 1.f, 0.f));
 		glm::mat4 lightMatrix = directionalLight.projectionMatrix() * lightView;
-		drawScene(depthOnlyShader, lightMatrix);
+		drawScene<ShaderPass::DEPTH_ONLY>(depthOnlyShader, lightMatrix);
+
+		//TODO: Draw to post process buffer
+		glBindFramebuffer(GL_FRAMEBUFFER, postprocessFramebuffer.getFBO());
 
 		//Deferred lit pass
 		glCullFace(GL_BACK);
-		glViewport(0, 0, gBuffer.getSize().x, gBuffer.getSize().y);
-		//TODO: Draw to post process buffer
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//glViewport(0, 0, gBuffer.getSize().x, gBuffer.getSize().y);
+		glViewport(0, 0, postprocessFramebuffer.getSize().x, postprocessFramebuffer.getSize().y);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glBindTextureUnit(0, gBuffer.getColorAttachment(0));
@@ -352,6 +358,7 @@ int main() {
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		//Light volumes
+		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClear(GL_DEPTH_BUFFER_BIT);
 		lightVolumeShader->use();
 		glEnable(GL_BLEND);
@@ -364,45 +371,46 @@ int main() {
 		lightVolumeShader->setFloat("_material.diffuseStrength", material.diffuseStrength);
 		lightVolumeShader->setFloat("_material.specularStrength", material.specularStrength);
 		lightVolumeShader->setFloat("_material.shininess", material.shininess);
+		lightVolumeShader->setSubroutine(GL_FRAGMENT_SHADER, {
+			std::make_pair("_attenuateFunction", attenuationMode == 0 ? "attenuateLinear" : "attenuateExponential")
+		});
 
 		for (int i = 0; i < sceneGridSize * sceneGridSize * activeMonkeyLightColors.size(); i++)
 		{
 			lightVolumeShader->setInt("_lightIndex", i);
 			ew::Transform transform;
 			transform.position = pointLights[i].position;
-			transform.scale = glm::vec3(pointLights[i].radius); //TODO: Ui control
+			transform.scale = glm::vec3(pointLights[i].radius);
 			lightVolumeShader->setMat4("_model", transform.modelMatrix());
 			sphereModel->draw();
 		}
 
 		glDisable(GL_BLEND);
-		glCullFace(GL_FRONT);
+		glCullFace(GL_BACK);
 		glDepthMask(GL_TRUE);
 
 		//Post process pass
-		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		//glBindTextureUnit(0, postprocessFramebuffer.getColorAttachment());
-		//glBindTextureUnit(1, postprocessFramebuffer.getDepthAttachment());
-		//postprocessShader->use();
+		glBindTextureUnit(0, postprocessFramebuffer.getColorAttachment());
+		glBindTextureUnit(1, postprocessFramebuffer.getDepthAttachment());
+		postprocessShader->use();
 
-		//postprocessShader->setSubroutine(GL_FRAGMENT_SHADER, {
-		//	std::make_pair("_blurFunction", boxBlurEnable ? "blurEnabled" : "blurDisabled"),
-		//	std::make_pair("_dofFunction", dofEnable ? "dofEnabled" : "dofDisabled"),
-		//	std::make_pair("_chromaticAberrationFunction", chromaticAberrationEnable ? "chromaticAberrationEnabled" : "chromaticAberrationDisabled") });
+		postprocessShader->setSubroutine(GL_FRAGMENT_SHADER, {
+			std::make_pair("_blurFunction", boxBlurEnable ? "blurEnabled" : "blurDisabled"),
+			std::make_pair("_dofFunction", dofEnable ? "dofEnabled" : "dofDisabled"),
+			std::make_pair("_chromaticAberrationFunction", chromaticAberrationEnable ? "chromaticAberrationEnabled" : "chromaticAberrationDisabled") });
 
-		//postprocessShader->setInt("_colorBuffer", 0);
-		//postprocessShader->setInt("_depthBuffer", 1);
-		//postprocessShader->setVec2("_focusPoint", focusPoint);
-		//postprocessShader->setInt("_boxBlurSize", boxBlurSize);
-		//postprocessShader->setFloat("_chromaticAberrationSize", chromaticAberrationSize);
-		//postprocessShader->setFloat("_dofMinDistance", dofMinDistance);
-		//postprocessShader->setFloat("_dofMaxDistance", dofMaxDistance);
-		//postprocessShader->setInt("_dofBlurSize", dofBlurSize);
+		postprocessShader->setVec2("_focusPoint", focusPoint);
+		postprocessShader->setInt("_boxBlurSize", boxBlurSize);
+		postprocessShader->setFloat("_chromaticAberrationSize", chromaticAberrationSize);
+		postprocessShader->setFloat("_dofMinDistance", dofMinDistance);
+		postprocessShader->setFloat("_dofMaxDistance", dofMaxDistance);
+		postprocessShader->setInt("_dofBlurSize", dofBlurSize);
 
-		//glBindVertexArray(screenVAO);
-		//glDrawArrays(GL_TRIANGLES, 0, 3);
+		glBindVertexArray(screenVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		drawUI();
 
@@ -425,14 +433,6 @@ void drawUI() {
 		ImGui::SliderInt("Grid size", &sceneGridSize, 1, MAX_GRID_SIZE);
 		ImGui::SliderInt("Lights per monkey", &lightsPerMonkey, 1, MAX_LIGHTS_PER_MONKEY);
 		if (lightsPerMonkey != prevLightsPerMonkey) upateMonkeyLightColors();
-		ImGui::Indent();
-		for (int i = 0; i < lightsPerMonkey; i++)
-		{
-			ImGui::PushID(i);
-			ImGui::ColorEdit4("Color", &activeMonkeyLightColors.data()[i].r);
-			ImGui::PopID();
-		}
-		ImGui::Unindent();
 	}
 	if (ImGui::CollapsingHeader("Global light"))
 	{
@@ -442,7 +442,21 @@ void drawUI() {
 		ImGui::SliderFloat("Shadow brightness", &shadowBrightness, 0.f, 1.f);
 		ImGui::DragFloat("Shadow min bias", &shadowMinBias, 0.001f);
 		ImGui::DragFloat("Shadow max bias", &shadowMaxBias, 0.001f);
-		ImGui::SliderFloat("Shadow frustum size", &directionalLight.orthoHeight, 0.f, 20.f);
+		ImGui::SliderFloat("Shadow frustum size", &directionalLight.orthoHeight, 0.f, 200.f);
+	}
+	if (ImGui::CollapsingHeader("Point lights"))
+	{
+		ImGui::Text("Color per group");
+		ImGui::Indent();
+		for (int i = 0; i < lightsPerMonkey; i++)
+		{
+			ImGui::PushID(i);
+			ImGui::ColorEdit4("Color", &activeMonkeyLightColors.data()[i].r);
+			ImGui::PopID();
+		}
+		ImGui::Unindent();
+		ImGui::Combo("Attenuation mode", &attenuationMode, "Linear\0Exponential");
+		ImGui::SliderFloat("Radius", &lightVolumeRadius, 0.01f, 20.f);
 	}
 	if (ImGui::CollapsingHeader("Material"))
 	{

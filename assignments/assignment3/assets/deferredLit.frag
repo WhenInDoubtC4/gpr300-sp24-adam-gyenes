@@ -63,7 +63,6 @@ void main()
 	vec3 albedo = texture(_gAlbedo, UV).rgb;
 
 	//Unlit shader
-	//TODO: Make it so unlit is not shaded
 	if (abs(length(_unlitShadingModelColor - texture(_gShadingModel, UV).rgb)) < SHADING_MODEL_COLOR_MATCH_TRESHOLD)
 	{
 		FragColor = vec4(albedo, 1.0);
@@ -88,6 +87,8 @@ void main()
 	vec3 light = _ambientColor * _material.ambientStrength;
 	light += _lightColor * diffuseFactor * _material.diffuseStrength;
 	light += _lightColor * specularFactor * _material.specularStrength;
+
+	light *= 1.0 - shadow;
 
 	FragColor = vec4(albedo * light, 1.0);
 }

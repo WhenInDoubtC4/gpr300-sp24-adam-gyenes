@@ -36,18 +36,20 @@ layout(std140, binding = 5) uniform AdditionalLights
 
 uniform Material _material;
 
-out vec4 FragColor;
+subroutine float AttenuateFunction(float dist, float radius);
 
-float attenuateLinear(float dist, float radius)
+subroutine (AttenuateFunction) float attenuateLinear(float dist, float radius)
 {
 	return clamp((radius - dist) / radius, 0.0, 1.0);
 }
 
-float attenuateExponential(float dist, float radius)
+subroutine (AttenuateFunction) float attenuateExponential(float dist, float radius)
 {
 	float i = clamp(1.0 - pow(dist / radius, 4.0), 0.0, 1.0);
 	return i * i;
 }
+
+subroutine uniform AttenuateFunction _attenuateFunction;
 
 vec3 calcPointLight(PointLight light, vec3 worldPosition, vec3 normal, vec3 toCamera)
 {
@@ -63,11 +65,12 @@ vec3 calcPointLight(PointLight light, vec3 worldPosition, vec3 normal, vec3 toCa
 
 	//Attenuation
 	float dist = length(diff);
-	//TODO: Might want to add subroutines
-	lightColor *= attenuateLinear(dist, light.radius);
+	lightColor *= _attenuateFunction(dist, light.radius);
 
 	return lightColor;
 }
+
+out vec4 FragColor;
 
 void main()
 {

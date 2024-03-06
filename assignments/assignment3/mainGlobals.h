@@ -1,6 +1,12 @@
 #pragma once
 
 //Structs and enums
+enum ShaderPass
+{
+	DEPTH_ONLY,
+	GEOMETRY_PASS
+};
+
 struct Material
 {
 	float ambientStrength = 0.6f;
@@ -95,3 +101,5 @@ GLuint lightsUBO;
 GLuint lightsUBOBinding = 5;
 constexpr int MAX_POINT_LIGHTS = MAX_GRID_SIZE * MAX_GRID_SIZE * MAX_LIGHTS_PER_MONKEY;
 PointLight pointLights[MAX_POINT_LIGHTS];
+int attenuationMode = 0;
+float lightVolumeRadius = 5.f;

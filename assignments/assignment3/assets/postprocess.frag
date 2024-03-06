@@ -4,8 +4,8 @@ out vec4 FragColor;
 
 in vec2 UV;
 
-uniform sampler2D _colorBuffer;
-uniform sampler2D _depthBuffer;
+uniform layout(binding = 0) sampler2D _colorBuffer;
+uniform layout(binding = 1) sampler2D _depthBuffer;
 
 uniform vec2 _focusPoint;
 

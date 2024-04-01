@@ -20,6 +20,8 @@
 #include <util/framebuffer.h>
 #include <util/shader.h>
 
+#include "mainGlobals.h"
+
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
@@ -109,6 +111,76 @@ void startRenderSceneToFramebuffer(const Util::Framebuffer& framebuffer)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
+void initAnimRig()
+{
+	printf("Constructing animation rig...\n");
+
+	animRig.root = new KNode("root");
+
+	animRig.torso = new KNode("torso");
+	animRig.torso->attach(animRig.root);
+
+	animRig.head = new KNode("head");
+	animRig.head->attach(animRig.torso);
+
+	animRig.shoulder_r = new KNode("shoulder_r");
+	animRig.shoulder_r->attach(animRig.torso);
+	animRig.arm_r = new KNode("arm_r");
+	animRig.arm_r->attach(animRig.shoulder_r);
+	animRig.hand_r = new KNode("hand_r");
+	animRig.hand_r->attach(animRig.arm_r);
+
+	animRig.shoulder_l = new KNode("shoulder_l");
+	animRig.shoulder_l->attach(animRig.torso);
+	animRig.arm_l = new KNode("arm_l");
+	animRig.arm_l->attach(animRig.shoulder_l);
+	animRig.hand_l = new KNode("hand_l");
+	animRig.hand_l->attach(animRig.arm_l);
+
+	animRig.thigh_r = new KNode("thigh_r");
+	animRig.thigh_r->attach(animRig.torso);
+	animRig.shin_r = new KNode("shin_r");
+	animRig.shin_r->attach(animRig.thigh_r);
+	animRig.foot_r = new KNode("foot_r");
+	animRig.foot_r->attach(animRig.shin_r);
+
+	animRig.thigh_l = new KNode("thigh_l");
+	animRig.thigh_l->attach(animRig.torso);
+	animRig.shin_l = new KNode("shin_l");
+	animRig.shin_l->attach(animRig.thigh_l);
+	animRig.foot_l = new KNode("foot_l");
+	animRig.foot_l->attach(animRig.shin_l);
+
+	animRig.root->outputHierarchy();
+}
+
+void deleteAnimRig()
+{
+	printf("Deleting animation rig...\n");
+
+	delete animRig.foot_l;
+	delete animRig.shin_l;
+	delete animRig.thigh_l;
+
+	delete animRig.foot_r;
+	delete animRig.shin_r;
+	delete animRig.thigh_r;
+
+	delete animRig.hand_l;
+	delete animRig.arm_l;
+	delete animRig.shoulder_l;
+
+	delete animRig.hand_r;
+	delete animRig.arm_r;
+	delete animRig.shoulder_r;
+
+	delete animRig.head;
+
+	delete animRig.torso;
+
+	delete animRig.root;
+}
+
 int main() {
 	GLFWwindow* window = initWindow("Assignment 5", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
@@ -159,6 +231,9 @@ int main() {
 	glEnable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
 	glEnable(GL_DEPTH_TEST);
+
+	//Animation setup section
+	initAnimRig();
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -245,6 +320,9 @@ int main() {
 
 		glfwSwapBuffers(window);
 	}
+
+	deleteAnimRig();
+
 	printf("Shutting down...");
 }
 

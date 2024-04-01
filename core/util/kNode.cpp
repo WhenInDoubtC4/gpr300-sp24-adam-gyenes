@@ -1,7 +1,8 @@
 #include "kNode.h"
 
-KNode::KNode(glm::vec3 localPosition, glm::quat localRotation, glm::vec3 localScale)
-	: _localPosition(localPosition)
+KNode::KNode(std::string name, glm::vec3 localPosition, glm::quat localRotation, glm::vec3 localScale)
+	: _name(name)
+	, _localPosition(localPosition)
 	, _localRotation(localRotation)
 	, _localScale(localScale)
 {
@@ -55,6 +56,19 @@ void KNode::detach()
 	childrenVec.erase(std::find(childrenVec.begin(), childrenVec.end(), this));
 
 	_parent = nullptr;
+}
+
+void KNode::outputHierarchy() const
+{
+	printf(_name.c_str());
+
+	for (KNode* childNode : _children)
+	{
+		printf("\t");
+		childNode->outputHierarchy();
+	}
+
+	printf("\n");
 }
 
 void KNode::solveFKRecursive(KNode* start)

@@ -140,24 +140,42 @@ void initAnimRig()
 
 	animRig.shoulder_l = new KNode("shoulder_l");
 	animRig.shoulder_l->attach(animRig.torso);
+	animRig.shoulder_l->setLocalPosition(glm::vec3(1.f, 0.f, 0.f));
+	animRig.shoulder_l->setLocalScale(glm::vec3(.6f, .2f, .6f));
 	animRig.arm_l = new KNode("arm_l");
 	animRig.arm_l->attach(animRig.shoulder_l);
+	animRig.arm_l->setLocalPosition(glm::vec3(0.f, -2.f, 0.f));
+	animRig.arm_l->setLocalScale(1.f / glm::vec3(.6f, .2f, .6f) * .3f * glm::vec3(1.f, 2.f, 1.f));
 	animRig.hand_l = new KNode("hand_l");
 	animRig.hand_l->attach(animRig.arm_l);
+	animRig.hand_l->setLocalPosition(glm::vec3(0.f, -1.f, 0.f));
+	animRig.hand_l->setLocalScale(1.f / animRig.arm_l->getLocalScale() * 1.f / animRig.shoulder_l->getLocalScale() * .3f);
 
 	animRig.thigh_r = new KNode("thigh_r");
 	animRig.thigh_r->attach(animRig.torso);
+	animRig.thigh_r->setLocalPosition(glm::vec3(-.5f, -1.f, 0.f));
+	animRig.thigh_r->setLocalScale(glm::vec3(.4f, .6f, .3f));
 	animRig.shin_r = new KNode("shin_r");
 	animRig.shin_r->attach(animRig.thigh_r);
+	animRig.shin_r->setLocalPosition(glm::vec3(0.f, -1.f, 0.f));
+	animRig.shin_r->setLocalScale(1.f / animRig.thigh_r->getLocalScale() * glm::vec3(.3f, .6f, .3f));
 	animRig.foot_r = new KNode("foot_r");
 	animRig.foot_r->attach(animRig.shin_r);
+	animRig.foot_r->setLocalPosition(glm::vec3(0.f, -.5f, 0.f));
+	animRig.foot_r->setLocalScale(1.f / animRig.shin_r->getLocalScale() * 1.f / animRig.thigh_r->getLocalScale() * .3f);
 
 	animRig.thigh_l = new KNode("thigh_l");
 	animRig.thigh_l->attach(animRig.torso);
+	animRig.thigh_l->setLocalPosition(glm::vec3(.5f, -1.f, 0.f));
+	animRig.thigh_l->setLocalScale(glm::vec3(.4f, .6f, .3f));
 	animRig.shin_l = new KNode("shin_l");
 	animRig.shin_l->attach(animRig.thigh_l);
+	animRig.shin_l->setLocalPosition(glm::vec3(0.f, -1.f, 0.f));
+	animRig.shin_l->setLocalScale(1.f / animRig.thigh_l->getLocalScale() * glm::vec3(.3f, .6f, .3f));
 	animRig.foot_l = new KNode("foot_l");
 	animRig.foot_l->attach(animRig.shin_l);
+	animRig.foot_l->setLocalPosition(glm::vec3(0.f, -.5f, 0.f));
+	animRig.foot_l->setLocalScale(1.f / animRig.shin_l->getLocalScale() * 1.f / animRig.thigh_l->getLocalScale() * .3f);
 
 	animRig.root->outputHierarchy();
 }
@@ -253,7 +271,6 @@ int main() {
 		cameraController.move(window, &camera, deltaTime);
 		camera.fov = cameraFov;
 
-		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.f, 1.f, 0.f));
 		glBindTextureUnit(0, shadowFramebuffer.getDepthAttachment());
 		glBindTextureUnit(1, currentColorTexture);
 		glBindTextureUnit(2, currentNormalTexture);
@@ -268,8 +285,14 @@ int main() {
 		glm::mat4 lightMatrix = directionalLight.projectionMatrix() * lightView;
 		depthOnlyShader.use();
 		depthOnlyShader.setMat4("_view", lightMatrix);
-		depthOnlyShader.setMat4("_model", monkeyTransform.modelMatrix());
-		monkeyModel.draw();
+
+		KNode::solveFKRecursive(animRig.root);
+		animRig.root->iterateHierarchy([&monkeyModel, depthOnlyShader](KNode* node)
+			{
+				depthOnlyShader.setMat4("_model", node->getGlobalTransformMatrix());
+				monkeyModel.draw();
+			});
+
 		depthOnlyShader.setMat4("_model", planeTransform.modelMatrix());
 		planeModel.draw();
 
@@ -278,8 +301,6 @@ int main() {
 		startRenderSceneToFramebuffer(postprocessFramebuffer);
 
 		shader.use();
-		//shader.setMat4("_model", monkeyTransform.modelMatrix());
-		//monkeyModel.draw();
 		shader.setMat4("_model", planeTransform.modelMatrix());
 		planeModel.draw();
 

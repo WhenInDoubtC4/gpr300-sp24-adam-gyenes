@@ -30,6 +30,7 @@ public:
 	glm::quat getLocalRotation() const { return _localRotation; };
 	glm::vec3 getLocalScale() const { return _localScale; };
 
+	void setLocalTransform(ew::Transform localTransform);
 	void setLocalPosition(glm::vec3 localPosition);
 	void setLocalRotation(glm::quat localRotation);
 	void setLocalRotation(glm::vec3 localRotation);

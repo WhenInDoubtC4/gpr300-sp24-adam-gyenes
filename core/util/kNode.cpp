@@ -98,6 +98,13 @@ void KNode::solveFKRecursive(KNode* start)
 	}
 }
 
+void KNode::setLocalTransform(ew::Transform localTransform)
+{
+	_localPosition = localTransform.position;
+	_localRotation = localTransform.rotation;
+	_localScale = localTransform.scale;
+}
+
 void KNode::setLocalPosition(glm::vec3 localPosition)
 {
 	_localPosition = localPosition;

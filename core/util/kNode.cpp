@@ -71,6 +71,16 @@ void KNode::outputHierarchy() const
 	printf("\n");
 }
 
+void KNode::iterateHierarchy(std::function<void(KNode*)> callback)
+{
+	callback(this);
+
+	for (KNode* childNode : _children)
+	{
+		childNode->iterateHierarchy(callback);
+	}
+}
+
 void KNode::solveFKRecursive(KNode* start)
 {
 	if (!start->_parent)
@@ -80,10 +90,11 @@ void KNode::solveFKRecursive(KNode* start)
 	else
 	{
 		start->_globalTransform = start->_parent->_globalTransform * start->getLocalTransformMatrix();
-		for (KNode* childNode : start->_children)
-		{
-			solveFKRecursive(childNode);
-		}
+	}
+
+	for (KNode* childNode : start->_children)
+	{
+		solveFKRecursive(childNode);
 	}
 }
 

@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <string>
+#include <functional>
 #include <glm/glm.hpp>
 
 #include "../ew/transform.h"
@@ -21,8 +22,13 @@ public:
 	void detach();
 
 	void outputHierarchy() const;
+	void iterateHierarchy(std::function<void(KNode*)> callback);
 
 	static void solveFKRecursive(KNode* start);
+
+	glm::vec3 getLocalPosition() const { return _localPosition; };
+	glm::quat getLocalRotation() const { return _localRotation; };
+	glm::vec3 getLocalScale() const { return _localScale; };
 
 	void setLocalPosition(glm::vec3 localPosition);
 	void setLocalRotation(glm::quat localRotation);
@@ -36,7 +42,7 @@ private:
 	glm::quat _localRotation;
 	glm::vec3 _localScale;
 
-	glm::mat4 _globalTransform;
+	glm::mat4 _globalTransform = glm::mat4(1.f);
 
 	KNode* _parent = nullptr;
 	std::vector<KNode*> _children;

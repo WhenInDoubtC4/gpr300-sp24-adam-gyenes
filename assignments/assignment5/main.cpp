@@ -122,13 +122,21 @@ void initAnimRig()
 
 	animRig.head = new KNode("head");
 	animRig.head->attach(animRig.torso);
+	animRig.head->setLocalPosition(glm::vec3(0.f, 1.f, 0.f));
+	animRig.head->setLocalScale(glm::vec3(.4f));
 
 	animRig.shoulder_r = new KNode("shoulder_r");
 	animRig.shoulder_r->attach(animRig.torso);
+	animRig.shoulder_r->setLocalPosition(glm::vec3(-1.f, 0.f, 0.f));
+	animRig.shoulder_r->setLocalScale(glm::vec3(.6f, .2f, .6f));
 	animRig.arm_r = new KNode("arm_r");
 	animRig.arm_r->attach(animRig.shoulder_r);
+	animRig.arm_r->setLocalPosition(glm::vec3(0.f, -2.f, 0.f));
+	animRig.arm_r->setLocalScale(1.f / glm::vec3(.6f, .2f, .6f) * .3f * glm::vec3(1.f, 2.f, 1.f));
 	animRig.hand_r = new KNode("hand_r");
 	animRig.hand_r->attach(animRig.arm_r);
+	animRig.hand_r->setLocalPosition(glm::vec3(0.f, -1.f, 0.f));
+	animRig.hand_r->setLocalScale(1.f / animRig.arm_r->getLocalScale() * 1.f / animRig.shoulder_r->getLocalScale() * .3f);
 
 	animRig.shoulder_l = new KNode("shoulder_l");
 	animRig.shoulder_l->attach(animRig.torso);
@@ -270,10 +278,18 @@ int main() {
 		startRenderSceneToFramebuffer(postprocessFramebuffer);
 
 		shader.use();
-		shader.setMat4("_model", monkeyTransform.modelMatrix());
-		monkeyModel.draw();
+		//shader.setMat4("_model", monkeyTransform.modelMatrix());
+		//monkeyModel.draw();
 		shader.setMat4("_model", planeTransform.modelMatrix());
 		planeModel.draw();
+
+		KNode::solveFKRecursive(animRig.root);
+		animRig.root->iterateHierarchy([&monkeyModel, shader](KNode* node)
+			{
+				shader.setMat4("_model", node->getGlobalTransformMatrix());
+				monkeyModel.draw();
+			});
+
 		shader.setMat4("_viewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		shader.setMat4("_lightViewProjection", lightMatrix);
 		shader.setVec3("_cameraPosition", camera.position);

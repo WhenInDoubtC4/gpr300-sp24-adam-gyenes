@@ -6,9 +6,9 @@ class Animator
 {
 public:
 	Animator() {};
-	Animator(std::initializer_list<const Animation&>& initAnimations);
+	Animator(std::initializer_list<Animation*>& initAnimations);
 
-	void addAnimation(const Animation& anim);
+	void addAnimation(Animation* anim);
 	void updateAll(float deltaTime);
 
 private:

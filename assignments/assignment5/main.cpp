@@ -177,11 +177,79 @@ void initAnimRig()
 	animRig.foot_l->setLocalPosition(glm::vec3(0.f, -.5f, 0.f));
 	animRig.foot_l->setLocalScale(1.f / animRig.shin_l->getLocalScale() * 1.f / animRig.thigh_l->getLocalScale() * .3f);
 
+	printf("Anim rig hierarchy:\n");
 	animRig.root->outputHierarchy();
+
+	anims.root = new Animation(animRig.root);
+	anims.root
+		->addKeyframe(0.f, glm::vec3(-5.f, 0.f, -5.f), QUAT_DEG(0.f, 0.f, 0.f), glm::vec3(1.f))
+		->addKeyframe(1.f, glm::vec3(-5.f, 0.f, 0.f), QUAT_DEG(0.f, 0.f, 0.f), glm::vec3(1.f))
+		->addKeyframe(1.5f, glm::vec3(-5.f, 0.f, 0.f), QUAT_DEG(0.f, 90.f, 0.f), glm::vec3(1.f))
+		->addKeyframe(2.5f, glm::vec3(0.f, 0.f, 0.f), QUAT_DEG(0.f, 90.f, 0.f), glm::vec3(1.f))
+		->addKeyframe(3.f, glm::vec3(0.f, 0.f, 0.f), QUAT_DEG(0.f, 180.f, 0.f), glm::vec3(1.f))
+		->addKeyframe(4.f, glm::vec3(0.f, 0.f, -5.f), QUAT_DEG(0.f, 180.f, 0.f), glm::vec3(1.f))
+		->addKeyframe(4.5f, glm::vec3(0.f, 0.f, -5.f), QUAT_DEG(0.f, 270.f, 0.f), glm::vec3(1.f))
+		->addKeyframe(5.5f, glm::vec3(-5.f, 0.f, -5.f), QUAT_DEG(0.f, 270.f, 0.f), glm::vec3(1.f))
+		->addKeyframe(6.f, glm::vec3(-5.f, 0.f, -5.f), QUAT_DEG(0.f, 0.f, 0.f), glm::vec3(1.f));
+	mainAnimator.addAnimation(anims.root);
+
+	anims.head = new Animation(animRig.head);
+	anims.head
+		->addKeyframe(0.f, animRig.head->getLocalPosition(), QUAT_DEG(0.f, 0.f, 0.f), animRig.head->getLocalScale())
+		->addKeyframe(0.5f, animRig.head->getLocalPosition(), QUAT_DEG(0.f, 45.f, 0.f), animRig.head->getLocalScale())
+		->addKeyframe(1.5f, animRig.head->getLocalPosition(), QUAT_DEG(0.f, -45.f, 0.f), animRig.head->getLocalScale())
+		->addKeyframe(2.f, animRig.head->getLocalPosition(), QUAT_DEG(0.f, 0.f, 0.f), animRig.head->getLocalScale());
+	mainAnimator.addAnimation(anims.head);
+
+	anims.shoulder_r = new Animation(animRig.shoulder_r);
+	anims.shoulder_r
+		->addKeyframe(0.f, animRig.shoulder_r->getLocalPosition(), QUAT_DEG(0.f, 0.f, 0.f), animRig.shoulder_r->getLocalScale())
+		->addKeyframe(0.3f, animRig.shoulder_r->getLocalPosition(), QUAT_DEG(30.f, 0.f, 0.f), animRig.shoulder_r->getLocalScale())
+		->addKeyframe(0.9f, animRig.shoulder_r->getLocalPosition(), QUAT_DEG(-30.f, 0.f, 0.f), animRig.shoulder_r->getLocalScale())
+		->addKeyframe(1.2f, animRig.shoulder_r->getLocalPosition(), QUAT_DEG(0.f, 0.f, 0.f), animRig.shoulder_r->getLocalScale());
+	mainAnimator.addAnimation(anims.shoulder_r);
+
+	anims.shoulder_l = new Animation(animRig.shoulder_l);
+	anims.shoulder_l
+		->addKeyframe(0.f, animRig.shoulder_l->getLocalPosition(), QUAT_DEG(0.f, 0.f, 0.f), animRig.shoulder_l->getLocalScale())
+		->addKeyframe(0.3f, animRig.shoulder_l->getLocalPosition(), QUAT_DEG(-30.f, 0.f, 0.f), animRig.shoulder_l->getLocalScale())
+		->addKeyframe(0.9f, animRig.shoulder_l->getLocalPosition(), QUAT_DEG(30.f, 0.f, 0.f), animRig.shoulder_l->getLocalScale())
+		->addKeyframe(1.2f, animRig.shoulder_l->getLocalPosition(), QUAT_DEG(0.f, 0.f, 0.f), animRig.shoulder_l->getLocalScale());
+	mainAnimator.addAnimation(anims.shoulder_l);
+
+	anims.thigh_r = new Animation(animRig.thigh_r);
+	anims.thigh_r
+		->addKeyframe(0.f, animRig.thigh_r->getLocalPosition(), QUAT_DEG(0.f, 0.f, 0.f), animRig.thigh_r->getLocalScale())
+		->addKeyframe(0.3f, animRig.thigh_r->getLocalPosition(), QUAT_DEG(-30.f, 0.f, 0.f), animRig.thigh_r->getLocalScale())
+		->addKeyframe(0.9f, animRig.thigh_r->getLocalPosition(), QUAT_DEG(30.f, 0.f, 0.f), animRig.thigh_r->getLocalScale())
+		->addKeyframe(1.2f, animRig.thigh_r->getLocalPosition(), QUAT_DEG(0.f, 0.f, 0.f), animRig.thigh_r->getLocalScale());
+	mainAnimator.addAnimation(anims.thigh_r);
+
+	anims.thigh_l = new Animation(animRig.thigh_l);
+	anims.thigh_l
+		->addKeyframe(0.f, animRig.thigh_l->getLocalPosition(), QUAT_DEG(0.f, 0.f, 0.f), animRig.thigh_l->getLocalScale())
+		->addKeyframe(0.3f, animRig.thigh_l->getLocalPosition(), QUAT_DEG(30.f, 0.f, 0.f), animRig.thigh_l->getLocalScale())
+		->addKeyframe(0.9f, animRig.thigh_l->getLocalPosition(), QUAT_DEG(-30.f, 0.f, 0.f), animRig.thigh_l->getLocalScale())
+		->addKeyframe(1.2f, animRig.thigh_l->getLocalPosition(), QUAT_DEG(0.f, 0.f, 0.f), animRig.thigh_l->getLocalScale());
+	mainAnimator.addAnimation(anims.thigh_l);
 }
 
 void deleteAnimRig()
 {
+	printf("Deleting animations...\n");
+	
+	delete anims.thigh_l;
+
+	delete anims.thigh_r;
+
+	delete anims.shoulder_l;
+
+	delete anims.shoulder_r;
+
+	delete anims.head;
+
+	delete anims.root;
+
 	printf("Deleting animation rig...\n");
 
 	delete animRig.foot_l;
@@ -238,8 +306,7 @@ int main() {
 	//Using a basic plane mesh from Maya since procGen doesn't calculate TBN
 	Util::Model planeModel("assets/plane.fbx");
 	ew::Transform planeTransform;
-	planeTransform.position.z = -2.5;
-	planeTransform.position.y = -2.f;
+	planeTransform.position = glm::vec3(-2.5f, -2.f, -2.5f);
 
 	brickColorTexture = ew::loadTexture("assets/brick2_color.jpg");
 	brickNormalTexture = ew::loadTexture("assets/brick2_normal.jpg");
@@ -287,6 +354,7 @@ int main() {
 		depthOnlyShader.setMat4("_view", lightMatrix);
 
 		KNode::solveFKRecursive(animRig.root);
+		mainAnimator.updateAll(deltaTime);
 		animRig.root->iterateHierarchy([&monkeyModel, depthOnlyShader](KNode* node)
 			{
 				depthOnlyShader.setMat4("_model", node->getGlobalTransformMatrix());

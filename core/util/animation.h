@@ -14,16 +14,20 @@ class Animation
 public:
 	Animation(KNode* node);
 
-	void addKeyframe(float time, ew::Transform transform);
+	Animation* addKeyframe(float time, ew::Transform transform);
+	Animation* addKeyframe(float time, glm::vec3 position, glm::quat rotation, glm::vec3 scale);
 
 private:
 	friend class Animator;
 
 	void sortKeyframes();
-	float getLength() const;
-	ew::Transform getTransformAtNormalizedTime(float time) const;
+	float getLength();
+	ew::Transform getTransformAtNormalizedTime(float time);
 
 	KNode* _node;
 	bool _areKeyframesSorted = false;
 	std::vector<Keyframe> _keyframes;
+
+	int _currentKeyframeIndex = 0;
+	float _currentKeyframeEndTime = 0.f;
 };

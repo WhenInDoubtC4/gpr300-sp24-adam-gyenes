@@ -6,11 +6,24 @@ Animation::Animation(KNode* node)
 
 }
 
-void Animation::addKeyframe(float time, ew::Transform transform)
+Animation* Animation::addKeyframe(float time, ew::Transform transform)
 {
 	_keyframes.push_back(std::make_pair(time, transform));
 	_areKeyframesSorted = false;
+
+	return this;
 }
+
+Animation* Animation::addKeyframe(float time, glm::vec3 position, glm::quat rotation, glm::vec3 scale)
+{
+	ew::Transform transform;
+	transform.position = position;
+	transform.rotation = rotation;
+	transform.scale = scale;
+
+	return addKeyframe(time, transform);
+}
+
 
 void Animation::sortKeyframes()
 {
@@ -22,42 +35,44 @@ void Animation::sortKeyframes()
 	_areKeyframesSorted = true;
 }
 
-float Animation::getLength() const
+float Animation::getLength()
 {
 	if (!_areKeyframesSorted) sortKeyframes();
 
 	return _keyframes.back().first;
 }
 
-ew::Transform Animation::getTransformAtNormalizedTime(float time) const
+ew::Transform Animation::getTransformAtNormalizedTime(float time)
 {
 	if (!_areKeyframesSorted) sortKeyframes();
 
-	bool found = false;
-	Keyframe& keyframe0;
-	Keyframe& keyframe1;
+	Keyframe* keyframe0 = nullptr;
+	Keyframe* keyframe1 = nullptr;
 
-	for (int i = 0; i < _keyframes.size() - 1; i++)
+	//Find keyframes between specified interval
+	int nextKeyframeIndex = _currentKeyframeIndex + 1 % _keyframes.size();
+	int i = 0;
+	while (_keyframes[_currentKeyframeIndex].first > time || _keyframes[nextKeyframeIndex].first <= time)
 	{
-		//Find keyframe between specified interval
-		if (_keyframes[i].first >= time && _keyframes[i + 1].first < time)
-		{
-			keyframe0 = _keyframes[i];
-			keyframe1 = _keyframes[i + 1];
+		_currentKeyframeIndex = nextKeyframeIndex++;
+		nextKeyframeIndex %= _keyframes.size();
 
-			found = true;
-			break;
-		}
+		//Prevent infinite loops
+		i++;
+		assert(i < _keyframes.size());
 	}
 
-	assert(found);
+	keyframe0 = &_keyframes[_currentKeyframeIndex];
+	keyframe1 = &_keyframes[nextKeyframeIndex];
 
-	float alpha = (time - keyframe0.first) / (keyframe1.first - keyframe0.first);
+	assert(keyframe0 && keyframe1);
+
+	float alpha = (time - keyframe0->first) / (keyframe1->first - keyframe0->first);
 
 	ew::Transform result;
-	result.position = glm::lerp(keyframe0.second.position, keyframe1.second.position, alpha);
-	result.rotation = glm::slerp(keyframe0.second.rotation, keyframe1.second.rotation, alpha);
-	result.scale = glm::lerp(keyframe0.second.scale, keyframe1.second.scale, alpha);
+	result.position = glm::mix(keyframe0->second.position, keyframe1->second.position, alpha);
+	result.rotation = glm::slerp(keyframe0->second.rotation, keyframe1->second.rotation, alpha);
+	result.scale = glm::mix(keyframe0->second.scale, keyframe1->second.scale, alpha);
 
 	return result;
 }
